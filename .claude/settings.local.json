@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl:*)",
+      "WebFetch(domain:alt4ir-ai-solutions.lovable.app)",
+      "mcp__n8n-mcp__n8n_health_check",
+      "mcp__n8n-mcp__search_nodes",
+      "mcp__n8n-mcp__get_node",
+      "mcp__n8n-mcp__validate_workflow",
+      "mcp__n8n-mcp__n8n_create_workflow",
+      "mcp__n8n-mcp__n8n_validate_workflow"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "n8n-mcp"
+  ]
+}

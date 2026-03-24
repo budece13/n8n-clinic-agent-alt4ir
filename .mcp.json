@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "command": "npx",
+      "args": ["n8n-mcp"],
+      "env": {
+        "MCP_MODE": "stdio",
+        "LOG_LEVEL": "error",
+        "DISABLE_CONSOLE_OUTPUT": "true",
+        "N8N_API_URL": "https://n8n.alt4ir.com/",
+        "N8N_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzM2Q3NWYwMC1jZjIxLTQ3ZmQtYjFiNS01MTg4YjM1MGI5YTgiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiZGRhOGM0YzgtNGQ3NC00ZjY4LThkNDMtOTU0YmM0OTI5Nzk1IiwiaWF0IjoxNzc0MzAwNDk4fQ.7dXr9RUnQqw_FNYRMgDO2reCO8ktpNQ6zLNl4mu_Www"
+      }
+    }
+  }
+}
