@@ -124,6 +124,7 @@ n8n-clinic-agent/
 ├── examples/              # Workflows de ejemplo
 ├── outputs/               # Workflows generados y exportados
 └── tests/                 # Tests de validación de workflows
+
 ```
 
 ---
@@ -139,6 +140,7 @@ n8n-clinic-agent/
 5. **Validar** el workflow con `validate_workflow` antes de desplegar
 6. **Desplegar** con `n8n_create_workflow` a la instancia n8n
 7. **Probar** con `n8n_test_workflow` y verificar la ejecución
+8. **Guardar** crear una copia del JSON del workflow output final en la carpeta outputs/
 
 ### Patrones de Workflow para Clínicas (5 Arquitecturas Base)
 

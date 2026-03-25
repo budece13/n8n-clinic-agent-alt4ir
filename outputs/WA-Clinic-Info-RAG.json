@@ -1,0 +1,593 @@
+{
+  "name": "WA-Clinic-Info-RAG",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "trigger-001",
+      "name": "Trigger - Execute Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT answer, intent_category FROM clinic_info_cache WHERE clinic_id = $1 AND normalized_question = LOWER(TRIM($2)) AND created_at > NOW() - INTERVAL '6 hours' ORDER BY created_at DESC LIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ $json.clinic_id }}, ={{ $json.question }}"
+        }
+      },
+      "id": "cache-check",
+      "name": "Verificar Cache",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        288,
+        304
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.answer }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cache-hit",
+      "name": "Cache Hit?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        544,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cached = $('Verificar Cache').first().json;\nreturn [{ json: {\n  success: true,\n  answer: cached.answer,\n  intent: cached.intent_category,\n  source: 'cache'\n}}];"
+      },
+      "id": "return-cached",
+      "name": "Devolver Respuesta Cacheada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT kb_type, content, metadata FROM clinic_knowledge_base WHERE clinic_id = $1 AND active = true ORDER BY kb_type;",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Execute Workflow').first().json.clinic_id }}"
+        }
+      },
+      "id": "load-kb",
+      "name": "Cargar Knowledge Base",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        800,
+        464
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Cargar Knowledge Base').all();\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nif (!items || items.length === 0 || !items[0].json.kb_type) {\n  return [{ json: { hasData: false, question: trigger.question, clinic_id: trigger.clinic_id, language: trigger.language || 'es' } }];\n}\n\nconst kb = items.map(i => i.json);\nconst context = {\n  services: kb.filter(r => r.kb_type === 'services').map(r => r.content).join('\\n'),\n  pricing: kb.filter(r => r.kb_type === 'pricing').map(r => r.content).join('\\n'),\n  schedule: kb.filter(r => r.kb_type === 'schedule').map(r => r.content).join('\\n'),\n  faq: kb.filter(r => r.kb_type === 'faq').map(r => r.content).join('\\n'),\n  location: kb.filter(r => r.kb_type === 'location').map(r => r.content).join('\\n'),\n  policies: kb.filter(r => r.kb_type === 'policies').map(r => r.content).join('\\n'),\n  team: kb.filter(r => r.kb_type === 'team').map(r => r.content).join('\\n')\n};\n\nreturn [{ json: { hasData: true, context, question: trigger.question, clinic_id: trigger.clinic_id, language: trigger.language || 'es' } }];"
+      },
+      "id": "format-kb",
+      "name": "Formatear y Verificar KB",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.hasData }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "kb-check",
+      "name": "KB Tiene Datos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1328,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT name, whatsapp_phone_number_id FROM clinics WHERE clinic_id = $1;",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Execute Workflow').first().json.clinic_id }}"
+        }
+      },
+      "id": "clinic-contact",
+      "name": "Obtener Contacto Clinica",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1584,
+        656
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const clinic = $('Obtener Contacto Clinica').first().json;\nconst clinicName = clinic.name || 'la clinica';\nreturn [{ json: {\n  success: true,\n  answer: 'Lo siento, no tengo informacion disponible en este momento. Te recomiendo contactar directamente con ' + clinicName + ' para resolver tu consulta.',\n  intent: 'fallback',\n  source: 'default'\n}}];"
+      },
+      "id": "default-resp",
+      "name": "Respuesta por Defecto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Clasifica la siguiente pregunta en una de estas categorias: services | pricing | schedule | faq | location | policies | general\nPregunta: {{ $json.question }}\nResponde SOLO con la categoria, sin mas texto.",
+        "batching": {}
+      },
+      "id": "classify-intent",
+      "name": "Clasificar Intencion",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1584,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "openai-classifier",
+      "name": "OpenAI - Clasificador",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1584,
+        480
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Formatear y Verificar KB').first().json.question }}",
+        "messages": {
+          "messageValues": [
+            {
+              "type": "system",
+              "message": "=Eres el asistente virtual de la clinica. Responde UNICAMENTE basandote en la informacion proporcionada en el contexto. Si la informacion no esta disponible en el contexto, di exactamente: 'No tengo esa informacion disponible, te recomiendo contactar directamente con la clinica.'\n\nNO inventes precios, horarios ni servicios. Se conciso y amigable.\nResponde siempre en el mismo idioma que la pregunta.\n\nCONTEXTO DE LA CLINICA:\nServicios: {{ $('Formatear y Verificar KB').first().json.context.services }}\nPrecios: {{ $('Formatear y Verificar KB').first().json.context.pricing }}\nHorarios: {{ $('Formatear y Verificar KB').first().json.context.schedule }}\nFAQ: {{ $('Formatear y Verificar KB').first().json.context.faq }}\nUbicacion: {{ $('Formatear y Verificar KB').first().json.context.location }}\nPoliticas: {{ $('Formatear y Verificar KB').first().json.context.policies }}"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "generate-answer",
+      "name": "Generar Respuesta",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1840,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "openai-generator",
+      "name": "OpenAI - Generador",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1840,
+        496
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const genResult = $('Generar Respuesta').first().json;\nconst answer = genResult.text || genResult.output || genResult.response || '';\nconst question = $('Formatear y Verificar KB').first().json.question;\nconst intentResult = $('Clasificar Intencion').first().json;\nconst intent = (intentResult.text || intentResult.output || intentResult.response || 'general').trim().toLowerCase();\n\nconst hallucinationPatterns = ['segun mis datos', 'estimo que', 'aproximadamente', 'creo que podria', 'es posible que'];\nlet finalAnswer = answer;\nlet wasFiltered = false;\n\nfor (const pattern of hallucinationPatterns) {\n  if (finalAnswer.toLowerCase().includes(pattern)) {\n    finalAnswer = 'No tengo esa informacion disponible con certeza. Te recomiendo contactar directamente con la clinica para obtener datos exactos.';\n    wasFiltered = true;\n    break;\n  }\n}\n\nif (finalAnswer.length > 500) {\n  finalAnswer = finalAnswer.substring(0, 497) + '...';\n}\n\nreturn [{ json: {\n  answer: finalAnswer,\n  intent: intent,\n  question: question,\n  wasFiltered: wasFiltered,\n  clinic_id: $('Trigger - Execute Workflow').first().json.clinic_id\n}}];"
+      },
+      "id": "validate-quality",
+      "name": "Validar Calidad Respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2112,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO clinic_info_queries (clinic_id, question, intent_category, answer, created_at) VALUES ($1, $2, $3, $4, NOW());",
+        "options": {
+          "queryReplacement": "={{ $json.clinic_id }}, ={{ $json.question }}, ={{ $json.intent }}, ={{ $json.answer }}"
+        }
+      },
+      "id": "log-query",
+      "name": "Registrar Consulta",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2368,
+        304
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO clinic_info_cache (clinic_id, normalized_question, answer, intent_category, created_at) VALUES ($1, LOWER(TRIM($2)), $3, $4, NOW()) ON CONFLICT (clinic_id, normalized_question) DO UPDATE SET answer = EXCLUDED.answer, intent_category = EXCLUDED.intent_category, created_at = NOW();",
+        "options": {
+          "queryReplacement": "={{ $json.clinic_id }}, ={{ $json.question }}, ={{ $json.answer }}, ={{ $json.intent }}"
+        }
+      },
+      "id": "save-cache",
+      "name": "Guardar en Cache",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2624,
+        304
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "a2",
+              "name": "answer",
+              "value": "={{ $('Validar Calidad Respuesta').first().json.answer }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "intent",
+              "value": "={{ $('Validar Calidad Respuesta').first().json.intent }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "source",
+              "value": "knowledge_base",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "return-response",
+      "name": "Devolver Respuesta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2880,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Esquema SQL Requerido\n\n```sql\nCREATE TABLE clinic_knowledge_base (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  clinic_id VARCHAR(100) NOT NULL,\n  kb_type VARCHAR(50) NOT NULL,\n  title VARCHAR(200),\n  content TEXT NOT NULL,\n  metadata JSONB DEFAULT '{}',\n  active BOOLEAN DEFAULT true,\n  created_at TIMESTAMP DEFAULT NOW(),\n  updated_at TIMESTAMP DEFAULT NOW()\n);\n\nCREATE TABLE clinic_info_queries (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  clinic_id VARCHAR(100),\n  question TEXT,\n  intent_category VARCHAR(50),\n  answer TEXT,\n  created_at TIMESTAMP DEFAULT NOW()\n);\n\nCREATE TABLE clinic_info_cache (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  clinic_id VARCHAR(100) NOT NULL,\n  normalized_question TEXT NOT NULL,\n  answer TEXT,\n  intent_category VARCHAR(50),\n  created_at TIMESTAMP DEFAULT NOW(),\n  UNIQUE(clinic_id, normalized_question)\n);\n```",
+        "height": 520,
+        "width": 580
+      },
+      "id": "sticky-schema",
+      "name": "Sticky Note - Schema SQL",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -208
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Trigger - Execute Workflow": {
+      "main": [
+        [
+          {
+            "node": "Verificar Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Cache": {
+      "main": [
+        [
+          {
+            "node": "Cache Hit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Hit?": {
+      "main": [
+        [
+          {
+            "node": "Devolver Respuesta Cacheada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cargar Knowledge Base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cargar Knowledge Base": {
+      "main": [
+        [
+          {
+            "node": "Formatear y Verificar KB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear y Verificar KB": {
+      "main": [
+        [
+          {
+            "node": "KB Tiene Datos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KB Tiene Datos?": {
+      "main": [
+        [
+          {
+            "node": "Clasificar Intencion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Obtener Contacto Clinica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Contacto Clinica": {
+      "main": [
+        [
+          {
+            "node": "Respuesta por Defecto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Clasificador": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Clasificar Intencion",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar Intencion": {
+      "main": [
+        [
+          {
+            "node": "Generar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI - Generador": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generar Respuesta",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Respuesta": {
+      "main": [
+        [
+          {
+            "node": "Validar Calidad Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Calidad Respuesta": {
+      "main": [
+        [
+          {
+            "node": "Registrar Consulta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Consulta": {
+      "main": [
+        [
+          {
+            "node": "Guardar en Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en Cache": {
+      "main": [
+        [
+          {
+            "node": "Devolver Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Madrid",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "6a63ec70-7577-4fdd-992a-819c4f406c6b",
+  "meta": {
+    "instanceId": "c6dbd7af322960facdb142f9c7103f41f6d7f5e1dcad92f1e75b96509ab69b5c"
+  },
+  "id": "fnPWy2yN6gaM6jIt",
+  "tags": [
+    {
+      "updatedAt": "2026-03-24T22:49:27.981Z",
+      "createdAt": "2026-03-24T22:49:27.981Z",
+      "id": "84EpEDM8vlTadhD2",
+      "name": "Agente_Clínicas"
+    }
+  ]
+}

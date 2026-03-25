@@ -1,0 +1,686 @@
+{
+  "name": "WA-Conversation-State",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "trigger-01",
+      "name": "Trigger - Entrada Sub-workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        32,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_session",
+                    "id": "9a692187-e52c-4956-a77a-04c84de11d8a"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_session"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "save_session",
+                    "id": "ddb7889d-65a9-48bd-baf8-c51c6ffe1c45"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "save_session"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "mark_reminder_responded",
+                    "id": "dec55619-c21c-467b-a751-b6ccd8af343b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "mark_reminder_responded"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_pending_reminders_24h",
+                    "id": "eabc4c83-d947-442b-b4d0-277ca400c741"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_pending_reminders_24h"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_pending_reminders_3h",
+                    "id": "417565c8-068d-457e-a8e6-a95b217d9883"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_pending_reminders_3h"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "clear_session",
+                    "id": "677fa2c1-c0cb-40ba-8a7c-95128c1feb47"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "clear_session"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_appointment_context",
+                    "id": "579e9d64-7323-409a-95e6-790a627f38e1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_appointment_context"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "accion_no_reconocida"
+        }
+      },
+      "id": "switch-01",
+      "name": "Router - Accion Solicitada",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  cs.session_data,\n  cs.last_interaction,\n  cs.appointment_context,\n  cs.updated_at,\n  a.id as active_appointment_id,\n  a.service,\n  a.datetime as appointment_datetime,\n  a.status,\n  a.reminder_24h_sent,\n  a.reminder_responded\nFROM conversation_sessions cs\nLEFT JOIN appointments a ON (\n  a.patient_phone = cs.phone \n  AND a.datetime > NOW() \n  AND a.status NOT IN ('cancelled')\n)\nWHERE cs.phone = $1\nORDER BY a.datetime ASC\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Entrada Sub-workflow').item.json.phone }}"
+        }
+      },
+      "id": "pg-get-session",
+      "name": "PG - Obtener Sesion",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        560,
+        -96
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "PostgreSQL Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const items = $input.all();\n\n  if (!items || items.length === 0 || !items[0].json.session_data) {\n    return [{ json: { session_data: {}, is_new_user: true, appointment_context: null, active_appointment: null } }];\n  }\n\n  const row = items[0].json;\n\n  let sessionData = row.session_data;\n  if (typeof sessionData === 'string') {\n    try { sessionData = JSON.parse(sessionData); } catch(e) { sessionData = {}; }\n  }\n\n  let appointmentContext = row.appointment_context;\n  if (typeof appointmentContext === 'string') {\n    try { appointmentContext = JSON.parse(appointmentContext); } catch(e) { appointmentContext = null; }\n  }\n\n  const result = {\n    session_data: sessionData,\n    is_new_user: false,\n    last_interaction: row.last_interaction,\n    updated_at: row.updated_at,\n    appointment_context: appointmentContext,\n    active_appointment: row.active_appointment_id ? {\n      id: row.active_appointment_id,\n      service: row.service,\n      datetime: row.appointment_datetime,\n      status: row.status,\n      reminder_24h_sent: row.reminder_24h_sent,\n      reminder_responded: row.reminder_responded\n    } : null\n  };\n\n  return [{ json: result }];\n} catch (error) {\n  return [{ json: { success: false, error: 'get_session_processing_error', message: error.message, session_data: {}, is_new_user: true } }];\n}"
+      },
+      "id": "code-get-session",
+      "name": "Procesar - Sesion Obtenida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const input = $('Trigger - Entrada Sub-workflow').item.json;\n\n  let sessionData = input.session_data || {};\n\n  // Truncar historial de mensajes a los ultimos 10\n  if (sessionData.message_history && Array.isArray(sessionData.message_history)) {\n    sessionData.message_history = sessionData.message_history.slice(-10);\n  }\n\n  // Anadir timestamp de actualizacion\n  sessionData._last_updated = new Date().toISOString();\n\n  return [{\n    json: {\n      phone: input.phone,\n      clinic_id: input.clinic_id || null,\n      session_data_json: JSON.stringify(sessionData)\n    }\n  }];\n} catch (error) {\n  return [{ json: { success: false, error: 'save_session_prep_error', message: error.message } }];\n}"
+      },
+      "id": "code-prep-save",
+      "name": "Preparar - Datos Sesion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO conversation_sessions (phone, clinic_id, session_data, last_interaction, updated_at)\nVALUES ($1, $2, $3::jsonb, NOW(), NOW())\nON CONFLICT (phone) DO UPDATE SET\n  session_data = EXCLUDED.session_data,\n  last_interaction = NOW(),\n  updated_at = NOW();",
+        "options": {
+          "queryReplacement": "={{ $json.phone }}, {{ $json.clinic_id }}, {{ $json.session_data_json }}"
+        }
+      },
+      "id": "pg-save-session",
+      "name": "PG - Guardar Sesion",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        832,
+        112
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "PostgreSQL Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, action: 'save_session' } }];"
+      },
+      "id": "code-save-resp",
+      "name": "Respuesta - Sesion Guardada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE appointments \nSET reminder_responded = true, updated_at = NOW()\nWHERE id = $1\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Entrada Sub-workflow').item.json.appointment_id }}"
+        }
+      },
+      "id": "pg-mark-reminder",
+      "name": "PG - Marcar Recordatorio Respondido",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        560,
+        304
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "PostgreSQL Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const input = $('Trigger - Entrada Sub-workflow').item.json;\n  return [{ json: { success: true, action: 'mark_reminder_responded', appointment_id: input.appointment_id } }];\n} catch (error) {\n  return [{ json: { success: false, error: 'mark_reminder_error', message: error.message } }];\n}"
+      },
+      "id": "code-mark-resp",
+      "name": "Respuesta - Recordatorio Marcado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  a.id,\n  a.patient_phone,\n  a.patient_name,\n  a.service,\n  a.datetime,\n  a.clinic_id,\n  c.name as clinic_name,\n  c.timezone\nFROM appointments a\nJOIN clinics c ON a.clinic_id = c.clinic_id\nWHERE \n  a.status = 'scheduled'\n  AND a.reminder_24h_sent = false\n  AND a.datetime BETWEEN NOW() + INTERVAL '23 hours' \n                     AND NOW() + INTERVAL '25 hours'\nORDER BY a.datetime ASC;",
+        "options": {}
+      },
+      "id": "pg-reminders-24h",
+      "name": "PG - Recordatorios Pendientes 24h",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        560,
+        512
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "PostgreSQL Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const items = $input.all();\n  const reminders = items.map(item => item.json);\n  // Filtrar filas vacias (cuando la query no devuelve resultados, n8n envia un item vacio)\n  const validReminders = reminders.filter(r => r.id);\n  return [{ json: { action: 'get_pending_reminders_24h', count: validReminders.length, reminders: validReminders } }];\n} catch (error) {\n  return [{ json: { action: 'get_pending_reminders_24h', count: 0, reminders: [], error: error.message } }];\n}"
+      },
+      "id": "code-reminders-24h-resp",
+      "name": "Respuesta - Recordatorios 24h",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  a.id,\n  a.patient_phone,\n  a.patient_name,\n  a.service,\n  a.datetime,\n  a.clinic_id,\n  c.name as clinic_name,\n  c.timezone\nFROM appointments a\nJOIN clinics c ON a.clinic_id = c.clinic_id\nWHERE \n  a.status IN ('scheduled', 'confirmed')\n  AND a.reminder_24h_sent = true\n  AND a.reminder_responded = false\n  AND a.reminder_3h_sent = false\n  AND a.datetime BETWEEN NOW() + INTERVAL '2 hours 30 minutes' \n                     AND NOW() + INTERVAL '3 hours 30 minutes'\nORDER BY a.datetime ASC;",
+        "options": {}
+      },
+      "id": "pg-reminders-3h",
+      "name": "PG - Recordatorios Pendientes 3h",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        560,
+        704
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "PostgreSQL Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const items = $input.all();\n  const reminders = items.map(item => item.json);\n  const validReminders = reminders.filter(r => r.id);\n  return [{ json: { action: 'get_pending_reminders_3h', count: validReminders.length, reminders: validReminders } }];\n} catch (error) {\n  return [{ json: { action: 'get_pending_reminders_3h', count: 0, reminders: [], error: error.message } }];\n}"
+      },
+      "id": "code-reminders-3h-resp",
+      "name": "Respuesta - Recordatorios 3h",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM conversation_sessions WHERE phone = $1;",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Entrada Sub-workflow').item.json.phone }}"
+        }
+      },
+      "id": "pg-clear-session",
+      "name": "PG - Limpiar Sesion",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        560,
+        912
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "PostgreSQL Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const input = $('Trigger - Entrada Sub-workflow').item.json;\n  return [{ json: { success: true, action: 'clear_session', phone: input.phone } }];\n} catch (error) {\n  return [{ json: { success: false, error: 'clear_session_error', message: error.message } }];\n}"
+      },
+      "id": "code-clear-resp",
+      "name": "Respuesta - Sesion Limpiada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT session_data->>'appointment_in_progress' as appointment_draft\nFROM conversation_sessions\nWHERE phone = $1 AND updated_at > NOW() - INTERVAL '30 minutes';",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Entrada Sub-workflow').item.json.phone }}"
+        }
+      },
+      "id": "pg-appt-context",
+      "name": "PG - Obtener Contexto Cita",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        560,
+        1104
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "PostgreSQL Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const items = $input.all();\n\n  if (!items || items.length === 0 || !items[0].json.appointment_draft) {\n    return [{ json: { action: 'get_appointment_context', has_draft: false, appointment_draft: null } }];\n  }\n\n  let draft = items[0].json.appointment_draft;\n  if (typeof draft === 'string') {\n    try { draft = JSON.parse(draft); } catch(e) { /* keep as string */ }\n  }\n\n  return [{ json: { action: 'get_appointment_context', has_draft: true, appointment_draft: draft } }];\n} catch (error) {\n  return [{ json: { action: 'get_appointment_context', has_draft: false, appointment_draft: null, error: error.message } }];\n}"
+      },
+      "id": "code-appt-context-resp",
+      "name": "Procesar - Contexto Cita",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const input = $('Trigger - Entrada Sub-workflow').item.json;\n  return [{ json: { success: false, error: 'unknown_action', message: `Accion no reconocida: ${input.action}`, received_action: input.action } }];\n} catch (error) {\n  return [{ json: { success: false, error: 'unknown_action', message: 'Accion no reconocida y error al procesar' } }];\n}"
+      },
+      "id": "code-error-fallback",
+      "name": "Respuesta - Accion No Reconocida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        1312
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Trigger - Entrada Sub-workflow": {
+      "main": [
+        [
+          {
+            "node": "Router - Accion Solicitada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router - Accion Solicitada": {
+      "main": [
+        [
+          {
+            "node": "PG - Obtener Sesion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar - Datos Sesion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG - Marcar Recordatorio Respondido",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG - Recordatorios Pendientes 24h",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG - Recordatorios Pendientes 3h",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG - Limpiar Sesion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PG - Obtener Contexto Cita",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta - Accion No Reconocida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG - Obtener Sesion": {
+      "main": [
+        [
+          {
+            "node": "Procesar - Sesion Obtenida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar - Datos Sesion": {
+      "main": [
+        [
+          {
+            "node": "PG - Guardar Sesion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG - Guardar Sesion": {
+      "main": [
+        [
+          {
+            "node": "Respuesta - Sesion Guardada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG - Marcar Recordatorio Respondido": {
+      "main": [
+        [
+          {
+            "node": "Respuesta - Recordatorio Marcado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG - Recordatorios Pendientes 24h": {
+      "main": [
+        [
+          {
+            "node": "Respuesta - Recordatorios 24h",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG - Recordatorios Pendientes 3h": {
+      "main": [
+        [
+          {
+            "node": "Respuesta - Recordatorios 3h",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG - Limpiar Sesion": {
+      "main": [
+        [
+          {
+            "node": "Respuesta - Sesion Limpiada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PG - Obtener Contexto Cita": {
+      "main": [
+        [
+          {
+            "node": "Procesar - Contexto Cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Madrid",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "acfda831-fdf5-47f8-93ee-147e1f1c9ed6",
+  "meta": {
+    "instanceId": "c6dbd7af322960facdb142f9c7103f41f6d7f5e1dcad92f1e75b96509ab69b5c"
+  },
+  "id": "Uid3zhvkQWA7VMgq",
+  "tags": [
+    {
+      "updatedAt": "2026-03-24T22:49:27.981Z",
+      "createdAt": "2026-03-24T22:49:27.981Z",
+      "id": "84EpEDM8vlTadhD2",
+      "name": "Agente_Clínicas"
+    }
+  ]
+}

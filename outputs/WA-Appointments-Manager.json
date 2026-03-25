@@ -1,0 +1,1700 @@
+{
+  "name": "WA-Appointments-Manager",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "trigger-001",
+      "name": "Trigger - Execute Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "check_availability"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "check_availability"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "create"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "create"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "cancel"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "cancel"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "reschedule"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "reschedule"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "confirm_from_reminder"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "confirm_from_reminder"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "list_upcoming"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "list_upcoming"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "switch-001",
+      "name": "Router por Accion",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_type, api_url, api_key, calendly_link, calendly_token, google_calendar_id, timezone FROM clinics WHERE clinic_id = $1;",
+        "options": {
+          "queryReplacement": "={{ $json.clinic_id }}"
+        }
+      },
+      "id": "avail-pg-001",
+      "name": "A - Obtener Config Clinica",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        -496
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('A - Obtener Config Clinica').item.json.api_url }}/availability",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('A - Obtener Config Clinica').item.json.api_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"service\": \"{{ $('Trigger - Execute Workflow').item.json.service }}\",\n  \"date\": \"{{ $('Trigger - Execute Workflow').item.json.preferred_date }}\",\n  \"timezone\": \"{{ $('A - Obtener Config Clinica').item.json.timezone }}\"\n}",
+        "options": {}
+      },
+      "id": "avail-http-001",
+      "name": "A - Consultar Disponibilidad API Clinica",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        832,
+        -576
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://api.calendly.com/event_type_available_times",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "event_type",
+              "value": "={{ $('A - Obtener Config Clinica').item.json.calendly_link }}"
+            },
+            {
+              "name": "start_time",
+              "value": "={{ $('Trigger - Execute Workflow').item.json.preferred_date }}T00:00:00Z"
+            },
+            {
+              "name": "end_time",
+              "value": "={{ $('Trigger - Execute Workflow').item.json.preferred_date }}T23:59:59Z"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('A - Obtener Config Clinica').item.json.calendly_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "avail-http-002",
+      "name": "A - Consultar Disponibilidad Calendly",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        832,
+        -416
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const trigger = $('Trigger - Execute Workflow').first().json;\n  const clinicApiResult = $('A - Consultar Disponibilidad API Clinica').first().json;\n  const calendlyResult = $('A - Consultar Disponibilidad Calendly').first().json;\n\n  const slots = [];\n\n  // Procesar slots de API clinica\n  if (clinicApiResult && !clinicApiResult.error && clinicApiResult.slots) {\n    const apiSlots = Array.isArray(clinicApiResult.slots) ? clinicApiResult.slots : [];\n    for (const slot of apiSlots) {\n      slots.push({\n        datetime: slot.datetime || slot.start || slot.time,\n        source: 'clinic_api'\n      });\n    }\n  }\n\n  // Procesar slots de Calendly\n  if (calendlyResult && !calendlyResult.error && calendlyResult.collection) {\n    const calSlots = Array.isArray(calendlyResult.collection) ? calendlyResult.collection : [];\n    for (const slot of calSlots) {\n      const dt = slot.start_time || slot.time;\n      // Evitar duplicados\n      if (!slots.find(s => s.datetime === dt)) {\n        slots.push({\n          datetime: dt,\n          source: 'calendly'\n        });\n      }\n    }\n  }\n\n  // Limitar a 5 slots maximo\n  const limitedSlots = slots.slice(0, 5);\n\n  if (limitedSlots.length === 0) {\n    return [{ json: { success: false, error: 'No hay disponibilidad para la fecha solicitada.', slots: [] } }];\n  }\n\n  return [{ json: { success: true, message: `Se encontraron ${limitedSlots.length} horarios disponibles.`, slots: limitedSlots } }];\n} catch (e) {\n  return [{ json: { success: false, error: 'Error al consultar disponibilidad: ' + e.message, slots: [] } }];\n}"
+      },
+      "id": "avail-code-001",
+      "name": "A - Combinar y Formatear Slots",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        -496
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_type, api_url, api_key, calendly_link, calendly_token, calendly_event_type_uuid, google_calendar_id, timezone FROM clinics WHERE clinic_id = $1;",
+        "options": {
+          "queryReplacement": "={{ $json.clinic_id }}"
+        }
+      },
+      "id": "create-pg-001",
+      "name": "B - Obtener Config Clinica",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        -96
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\nconst clinic = $('B - Obtener Config Clinica').first().json;\n\nconst errors = [];\nif (!trigger.phone) errors.push('Telefono del paciente es obligatorio');\nif (!trigger.service) errors.push('Servicio es obligatorio');\nif (!trigger.preferred_date) errors.push('Fecha preferida es obligatoria');\nif (!trigger.preferred_time) errors.push('Hora preferida es obligatoria');\n\n// Validar formato fecha YYYY-MM-DD\nif (trigger.preferred_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(trigger.preferred_date)) {\n  errors.push('Formato de fecha invalido. Use YYYY-MM-DD');\n}\n// Validar formato hora HH:MM\nif (trigger.preferred_time && !/^\\d{2}:\\d{2}$/.test(trigger.preferred_time)) {\n  errors.push('Formato de hora invalido. Use HH:MM');\n}\n\nif (errors.length > 0) {\n  return [{ json: { success: false, error: errors.join('. '), validation_failed: true } }];\n}\n\nreturn [{ json: { ...trigger, clinic_config: clinic, validation_failed: false, datetime: trigger.preferred_date + 'T' + trigger.preferred_time + ':00' } }];"
+      },
+      "id": "create-code-001",
+      "name": "B - Validar Datos Entrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.validation_failed }}",
+              "id": "condition-1774392343575-bn7fqj2be"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "create-if-001",
+      "name": "B - Validacion OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1072,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('B - Obtener Config Clinica').first().json.api_url }}/appointments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('B - Obtener Config Clinica').first().json.api_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"patient_phone\": \"{{ $json.phone }}\",\n  \"service\": \"{{ $json.service }}\",\n  \"datetime\": \"{{ $json.datetime }}\",\n  \"notes\": \"Cita creada via WhatsApp\"\n}",
+        "options": {}
+      },
+      "id": "create-http-001",
+      "name": "B - Crear en API Clinica",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1328,
+        -176
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.calendly.com/scheduled_events",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('B - Obtener Config Clinica').first().json.calendly_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"event_type_uuid\": \"{{ $('B - Obtener Config Clinica').first().json.calendly_event_type_uuid }}\",\n  \"start_time\": \"{{ $('B - Validar Datos Entrada').first().json.datetime }}\",\n  \"invitee\": {\n    \"name\": \"Paciente\",\n    \"email\": \"pending@clinic.com\"\n  }\n}",
+        "options": {}
+      },
+      "id": "create-http-002",
+      "name": "B - Crear en Calendario",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1584,
+        -176
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO appointments (clinic_id, patient_phone, service, datetime, external_id, external_calendar_id, status, created_at) VALUES ($1, $2, $3, $4, $5, $6, 'scheduled', NOW()) RETURNING id, datetime, service;",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Execute Workflow').first().json.clinic_id }}, {{ $('Trigger - Execute Workflow').first().json.phone }}, {{ $('Trigger - Execute Workflow').first().json.service }}, {{ $('B - Validar Datos Entrada').first().json.datetime }}, {{ $('B - Crear en API Clinica').first().json.id || '' }}, {{ $('B - Crear en Calendario').first().json.uri || '' }}"
+        }
+      },
+      "id": "create-pg-002",
+      "name": "B - Guardar Cita en BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1840,
+        -176
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const dbResult = $('B - Guardar Cita en BD').first().json;\n  const trigger = $('Trigger - Execute Workflow').first().json;\n\n  if (!dbResult || !dbResult.id) {\n    return [{ json: { success: false, error: 'Error al guardar la cita en la base de datos.' } }];\n  }\n\n  const dt = new Date(dbResult.datetime);\n  const fecha = dt.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Europe/Madrid' });\n  const hora = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });\n\n  return [{ json: {\n    success: true,\n    message: `Cita creada el ${fecha} a las ${hora} para ${dbResult.service}`,\n    appointment_id: dbResult.id,\n    datetime: dbResult.datetime,\n    confirmation_code: $('B - Crear en API Clinica').first().json.id || dbResult.id\n  }}];\n} catch (e) {\n  return [{ json: { success: false, error: 'Error al procesar la respuesta de creacion: ' + e.message } }];\n}"
+      },
+      "id": "create-code-002",
+      "name": "B - Respuesta Crear Cita",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2112,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT a.*, c.api_url, c.api_key, c.calendly_token FROM appointments a JOIN clinics c ON a.clinic_id = c.clinic_id WHERE a.id = $1 AND a.patient_phone = $2;",
+        "options": {
+          "queryReplacement": "={{ $json.appointment_id }}, {{ $json.phone }}"
+        }
+      },
+      "id": "cancel-pg-001",
+      "name": "C - Obtener Cita",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        304
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('C - Obtener Cita').all();\nif (!items || items.length === 0 || !items[0].json.id) {\n  return [{ json: { success: false, error: 'Cita no encontrada o no pertenece a este telefono.', not_found: true } }];\n}\nreturn [{ json: { ...items[0].json, not_found: false } }];"
+      },
+      "id": "cancel-code-check",
+      "name": "C - Verificar Cita Existe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.not_found }}",
+              "id": "condition-1774392343575-xixk3f47s"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cancel-if-001",
+      "name": "C - Cita Encontrada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1072,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.api_url }}/appointments/{{ $json.external_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.api_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"cancelled\" }",
+        "options": {}
+      },
+      "id": "cancel-http-001",
+      "name": "C - Cancelar en API Clinica",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1328,
+        224
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ $('C - Verificar Cita Existe').first().json.external_calendar_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('C - Obtener Cita').first().json.calendly_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cancel-http-002",
+      "name": "C - Cancelar en Calendario",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1584,
+        224
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE appointments SET status = 'cancelled', updated_at = NOW() WHERE id = $1;",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Execute Workflow').first().json.appointment_id }}"
+        }
+      },
+      "id": "cancel-pg-002",
+      "name": "C - Actualizar Estado BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1840,
+        224
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  return [{ json: { success: true, message: 'Cita cancelada correctamente.' } }];\n} catch (e) {\n  return [{ json: { success: false, error: 'Error al cancelar la cita: ' + e.message } }];\n}"
+      },
+      "id": "cancel-code-001",
+      "name": "C - Respuesta Cancelacion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2112,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT a.*, c.api_url, c.api_key, c.calendly_token, c.calendly_event_type_uuid, c.timezone FROM appointments a JOIN clinics c ON a.clinic_id = c.clinic_id WHERE a.id = $1 AND a.patient_phone = $2;",
+        "options": {
+          "queryReplacement": "={{ $json.appointment_id }}, {{ $json.phone }}"
+        }
+      },
+      "id": "resc-pg-001",
+      "name": "D - Obtener Cita Actual",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        704
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('D - Obtener Cita Actual').all();\nif (!items || items.length === 0 || !items[0].json.id) {\n  return [{ json: { success: false, error: 'Cita no encontrada o no pertenece a este telefono.', not_found: true } }];\n}\nconst trigger = $('Trigger - Execute Workflow').first().json;\nif (!trigger.preferred_date || !trigger.preferred_time) {\n  return [{ json: { success: false, error: 'Debe indicar la nueva fecha y hora para reprogramar.', not_found: true } }];\n}\nreturn [{ json: { ...items[0].json, new_datetime: trigger.preferred_date + 'T' + trigger.preferred_time + ':00', not_found: false } }];"
+      },
+      "id": "resc-code-check",
+      "name": "D - Verificar Cita Existe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.not_found }}",
+              "id": "condition-1774392343575-0yzow6055"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "resc-if-001",
+      "name": "D - Cita Encontrada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1072,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.api_url }}/appointments/{{ $json.external_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.api_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"rescheduled\" }",
+        "options": {}
+      },
+      "id": "resc-http-001",
+      "name": "D - Cancelar Cita Antigua API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1328,
+        624
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('D - Verificar Cita Existe').first().json.api_url }}/appointments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('D - Verificar Cita Existe').first().json.api_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"patient_phone\": \"{{ $('Trigger - Execute Workflow').first().json.phone }}\",\n  \"service\": \"{{ $('D - Verificar Cita Existe').first().json.service }}\",\n  \"datetime\": \"{{ $('D - Verificar Cita Existe').first().json.new_datetime }}\",\n  \"notes\": \"Reprogramada desde WhatsApp\"\n}",
+        "options": {}
+      },
+      "id": "resc-http-002",
+      "name": "D - Crear Nueva Cita API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1584,
+        624
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH old_update AS (UPDATE appointments SET status = 'rescheduled', updated_at = NOW() WHERE id = $1) INSERT INTO appointments (clinic_id, patient_phone, service, datetime, external_id, status, created_at) VALUES ($2, $3, $4, $5, $6, 'scheduled', NOW()) RETURNING id, datetime, service;",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Execute Workflow').first().json.appointment_id }}, {{ $('Trigger - Execute Workflow').first().json.clinic_id }}, {{ $('Trigger - Execute Workflow').first().json.phone }}, {{ $('D - Verificar Cita Existe').first().json.service }}, {{ $('D - Verificar Cita Existe').first().json.new_datetime }}, {{ $('D - Crear Nueva Cita API').first().json.id || '' }}"
+        }
+      },
+      "id": "resc-pg-002",
+      "name": "D - Actualizar BD Reprogramar",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1840,
+        624
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const dbResult = $('D - Actualizar BD Reprogramar').first().json;\n  if (!dbResult || !dbResult.id) {\n    return [{ json: { success: false, error: 'Error al reprogramar la cita en la base de datos.' } }];\n  }\n  const dt = new Date(dbResult.datetime);\n  const fecha = dt.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Europe/Madrid' });\n  const hora = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });\n  return [{ json: {\n    success: true,\n    message: `Cita reprogramada para el ${fecha} a las ${hora}.`,\n    appointment_id: dbResult.id,\n    datetime: dbResult.datetime\n  }}];\n} catch (e) {\n  return [{ json: { success: false, error: 'Error al procesar reprogramacion: ' + e.message } }];\n}"
+      },
+      "id": "resc-code-001",
+      "name": "D - Respuesta Reprogramacion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2112,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT a.*, c.api_url, c.api_key, c.calendly_token FROM appointments a JOIN clinics c ON a.clinic_id = c.clinic_id WHERE a.id = $1;",
+        "options": {
+          "queryReplacement": "={{ $json.appointment_id }}"
+        }
+      },
+      "id": "confirm-pg-001",
+      "name": "E - Obtener Cita Reminder",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        1104
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Trigger - Execute Workflow').first().json.response }}",
+                    "rightValue": "confirm"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "confirm"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Trigger - Execute Workflow').first().json.response }}",
+                    "rightValue": "cancel"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "cancel"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Trigger - Execute Workflow').first().json.response }}",
+                    "rightValue": "reschedule"
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "reschedule"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "confirm-switch-001",
+      "name": "E - Router por Respuesta",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        832,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE appointments SET status = 'confirmed', reminder_responded = true, updated_at = NOW() WHERE id = $1;",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Execute Workflow').first().json.appointment_id }}"
+        }
+      },
+      "id": "confirm-pg-confirm",
+      "name": "E - Confirmar Cita BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1104,
+        976
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, message: 'Perfecto! Tu cita esta confirmada. Te esperamos.' } }];"
+      },
+      "id": "confirm-code-confirm",
+      "name": "E - Respuesta Confirmacion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        1008
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE appointments SET reminder_responded = true, updated_at = NOW() WHERE id = $1;",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Execute Workflow').first().json.appointment_id }}"
+        }
+      },
+      "id": "confirm-pg-resc",
+      "name": "E - Marcar Reminder Respondido",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1104,
+        1264
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, message: 'Para que fecha y hora te viene mejor?', needs_reschedule: true } }];"
+      },
+      "id": "confirm-code-resc",
+      "name": "E - Respuesta Reprogramar Reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, service, datetime, status FROM appointments WHERE patient_phone = $1 AND datetime > NOW() AND status != 'cancelled' ORDER BY datetime ASC LIMIT 3;",
+        "options": {
+          "queryReplacement": "={{ $json.phone }}"
+        }
+      },
+      "id": "list-pg-001",
+      "name": "F - Obtener Proximas Citas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        1504
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const appointments = $('F - Obtener Proximas Citas').all().map(item => item.json);\n\n  if (!appointments || appointments.length === 0 || !appointments[0].id) {\n    return [{ json: { success: true, message: 'No tienes citas programadas proximamente.', appointments: [] } }];\n  }\n\n  const lines = appointments.map((apt, i) => {\n    const dt = new Date(apt.datetime);\n    const fecha = dt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });\n    const hora = dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });\n    const estado = apt.status === 'confirmed' ? ' (Confirmada)' : '';\n    return `${i + 1}. ${apt.service} - ${fecha} a las ${hora}${estado}`;\n  });\n\n  return [{ json: {\n    success: true,\n    message: 'Tus proximas citas:\\n' + lines.join('\\n'),\n    appointments: appointments\n  }}];\n} catch (e) {\n  return [{ json: { success: false, error: 'Error al obtener tus citas: ' + e.message } }];\n}"
+      },
+      "id": "list-code-001",
+      "name": "F - Formatear Lista Citas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const action = $('Trigger - Execute Workflow').first().json.action || 'desconocida';\nreturn [{ json: { success: false, error: `Accion no reconocida: ${action}. Acciones validas: check_availability, create, cancel, reschedule, confirm_from_reminder, list_upcoming` } }];"
+      },
+      "id": "fallback-code-001",
+      "name": "Error - Accion No Reconocida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        1808
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationError = $('B - Validar Datos Entrada').first().json;\nreturn [{ json: { success: false, error: validationError.error || 'Error de validacion en los datos de la cita.' } }];"
+      },
+      "id": "err-b-val",
+      "name": "B - Error Validacion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, error: 'Cita no encontrada o no pertenece a este telefono.' } }];"
+      },
+      "id": "err-c-nf",
+      "name": "C - Error No Encontrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, error: 'Cita no encontrada o no pertenece a este telefono. No se puede reprogramar.' } }];"
+      },
+      "id": "err-d-nf",
+      "name": "D - Error No Encontrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        784
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "error-trigger-001",
+      "name": "Error Trigger Global",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        2112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO workflow_errors (workflow_name, node_name, error_message, input_data, created_at) VALUES ('WA-Appointments-Manager', $1, $2, $3, NOW());",
+        "options": {
+          "queryReplacement": "={{ $json.execution.lastNodeExecuted || 'unknown' }}, ={{ $json.execution.error.message || 'Error desconocido' }}, ={{ JSON.stringify($json.execution.data || {}) }}"
+        }
+      },
+      "id": "error-log-bd",
+      "name": "Error - Log en BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        320,
+        2112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, error: 'Ha ocurrido un error procesando tu solicitud. Por favor, intentalo de nuevo o contacta con la clinica.' } }];"
+      },
+      "id": "error-respuesta",
+      "name": "Error - Respuesta Amigable",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        2112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('E - Obtener Cita Reminder').first().json.api_url }}/appointments/{{ $('E - Obtener Cita Reminder').first().json.external_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('E - Obtener Cita Reminder').first().json.api_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"cancelled\" }",
+        "options": {}
+      },
+      "id": "e-cancel-api",
+      "name": "E - Cancelar en API Clinica",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1104,
+        1104
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ $('E - Obtener Cita Reminder').first().json.external_calendar_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('E - Obtener Cita Reminder').first().json.calendly_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e-cancel-cal",
+      "name": "E - Cancelar Calendario Reminder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1360,
+        1104
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE appointments SET status = 'cancelled', reminder_responded = true, updated_at = NOW() WHERE id = $1;",
+        "options": {
+          "queryReplacement": "={{ $('Trigger - Execute Workflow').first().json.appointment_id }}"
+        }
+      },
+      "id": "e-cancel-bd-rem",
+      "name": "E - Cancelar Cita Reminder BD",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1616,
+        1104
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres Clinica"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, message: 'Tu cita ha sido cancelada correctamente.' } }];"
+      },
+      "id": "e-resp-cancel-rem",
+      "name": "E - Respuesta Cancelacion Reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        1104
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Trigger - Execute Workflow": {
+      "main": [
+        [
+          {
+            "node": "Router por Accion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router por Accion": {
+      "main": [
+        [
+          {
+            "node": "A - Obtener Config Clinica",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "B - Obtener Config Clinica",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "C - Obtener Cita",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "D - Obtener Cita Actual",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "E - Obtener Cita Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "F - Obtener Proximas Citas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error - Accion No Reconocida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A - Obtener Config Clinica": {
+      "main": [
+        [
+          {
+            "node": "A - Consultar Disponibilidad API Clinica",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "A - Consultar Disponibilidad Calendly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A - Consultar Disponibilidad API Clinica": {
+      "main": [
+        [
+          {
+            "node": "A - Combinar y Formatear Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A - Consultar Disponibilidad Calendly": {
+      "main": [
+        [
+          {
+            "node": "A - Combinar y Formatear Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Obtener Config Clinica": {
+      "main": [
+        [
+          {
+            "node": "B - Validar Datos Entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Validar Datos Entrada": {
+      "main": [
+        [
+          {
+            "node": "B - Validacion OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Validacion OK?": {
+      "main": [
+        [
+          {
+            "node": "B - Crear en API Clinica",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "B - Error Validacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Crear en API Clinica": {
+      "main": [
+        [
+          {
+            "node": "B - Crear en Calendario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Crear en Calendario": {
+      "main": [
+        [
+          {
+            "node": "B - Guardar Cita en BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Guardar Cita en BD": {
+      "main": [
+        [
+          {
+            "node": "B - Respuesta Crear Cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C - Obtener Cita": {
+      "main": [
+        [
+          {
+            "node": "C - Verificar Cita Existe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C - Verificar Cita Existe": {
+      "main": [
+        [
+          {
+            "node": "C - Cita Encontrada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C - Cita Encontrada?": {
+      "main": [
+        [
+          {
+            "node": "C - Cancelar en API Clinica",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "C - Error No Encontrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C - Cancelar en API Clinica": {
+      "main": [
+        [
+          {
+            "node": "C - Cancelar en Calendario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C - Cancelar en Calendario": {
+      "main": [
+        [
+          {
+            "node": "C - Actualizar Estado BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C - Actualizar Estado BD": {
+      "main": [
+        [
+          {
+            "node": "C - Respuesta Cancelacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D - Obtener Cita Actual": {
+      "main": [
+        [
+          {
+            "node": "D - Verificar Cita Existe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D - Verificar Cita Existe": {
+      "main": [
+        [
+          {
+            "node": "D - Cita Encontrada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D - Cita Encontrada?": {
+      "main": [
+        [
+          {
+            "node": "D - Cancelar Cita Antigua API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "D - Error No Encontrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D - Cancelar Cita Antigua API": {
+      "main": [
+        [
+          {
+            "node": "D - Crear Nueva Cita API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D - Crear Nueva Cita API": {
+      "main": [
+        [
+          {
+            "node": "D - Actualizar BD Reprogramar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D - Actualizar BD Reprogramar": {
+      "main": [
+        [
+          {
+            "node": "D - Respuesta Reprogramacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E - Obtener Cita Reminder": {
+      "main": [
+        [
+          {
+            "node": "E - Router por Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E - Router por Respuesta": {
+      "main": [
+        [
+          {
+            "node": "E - Confirmar Cita BD",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "E - Cancelar en API Clinica",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "E - Marcar Reminder Respondido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E - Confirmar Cita BD": {
+      "main": [
+        [
+          {
+            "node": "E - Respuesta Confirmacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E - Marcar Reminder Respondido": {
+      "main": [
+        [
+          {
+            "node": "E - Respuesta Reprogramar Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "F - Obtener Proximas Citas": {
+      "main": [
+        [
+          {
+            "node": "F - Formatear Lista Citas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger Global": {
+      "main": [
+        [
+          {
+            "node": "Error - Log en BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error - Log en BD": {
+      "main": [
+        [
+          {
+            "node": "Error - Respuesta Amigable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E - Cancelar en API Clinica": {
+      "main": [
+        [
+          {
+            "node": "E - Cancelar Calendario Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E - Cancelar Calendario Reminder": {
+      "main": [
+        [
+          {
+            "node": "E - Cancelar Cita Reminder BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E - Cancelar Cita Reminder BD": {
+      "main": [
+        [
+          {
+            "node": "E - Respuesta Cancelacion Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Madrid",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "19749d81-ebcf-44a6-8344-0bb5c8177404",
+  "meta": {
+    "instanceId": "c6dbd7af322960facdb142f9c7103f41f6d7f5e1dcad92f1e75b96509ab69b5c"
+  },
+  "id": "ugePP9WO4Nn9OS0e",
+  "tags": [
+    {
+      "updatedAt": "2026-03-24T22:49:27.981Z",
+      "createdAt": "2026-03-24T22:49:27.981Z",
+      "id": "84EpEDM8vlTadhD2",
+      "name": "Agente_Clínicas"
+    }
+  ]
+}
