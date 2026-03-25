@@ -34,7 +34,6 @@ WhatsApp ──► WA-Inbound-Orchestrator
 ```
 ├── outputs/    # Workflows generados (JSON importable en n8n)
 ├── prompts/    # Prompts para generar cada workflow con Claude
-├── .mcp.json   # Configuración n8n-mcp (URL + API Key)
 └── CLAUDE.md   # Instrucciones del agente y reglas de producción
 ```
 
