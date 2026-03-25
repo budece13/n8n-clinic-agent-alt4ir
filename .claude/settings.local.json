@@ -14,6 +14,7 @@
       "Bash(jq:*)",
       "Bash(npx:*)",
       "Bash(node:*)",
+      "Bash(python3 -c \":*)",
       "WebFetch(domain:api.github.com)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:alt4ir-ai-solutions.lovable.app)",
@@ -27,7 +28,6 @@
       "mcp__n8n-mcp__validate_workflow",
       "mcp__n8n-mcp__tools_documentation",
       "mcp__n8n-mcp__n8n_create_workflow",
-<<<<<<< HEAD
       "mcp__n8n-mcp__n8n_get_workflow",
       "mcp__n8n-mcp__n8n_update_full_workflow",
       "mcp__n8n-mcp__n8n_update_partial_workflow",
@@ -36,18 +36,9 @@
       "mcp__n8n-mcp__n8n_test_workflow",
       "mcp__n8n-mcp__n8n_executions",
       "mcp__n8n-mcp__n8n_validate_workflow",
-      "mcp__n8n-mcp__n8n_autofix_workflow",
       "mcp__n8n-mcp__n8n_workflow_versions",
-      "mcp__n8n-mcp__n8n_deploy_template"
-=======
-      "mcp__n8n-mcp__n8n_validate_workflow",
-      "mcp__n8n-mcp__n8n_list_workflows",
-      "mcp__n8n-mcp__n8n_get_workflow",
-      "Bash(python3 -c \":*)",
-      "mcp__n8n-mcp__n8n_update_partial_workflow",
-      "mcp__n8n-mcp__n8n_autofix_workflow",
-      "mcp__n8n-mcp__n8n_update_full_workflow"
->>>>>>> eceddd9 (me pica el weo)
+      "mcp__n8n-mcp__n8n_deploy_template",
+      "mcp__n8n-mcp__n8n_autofix_workflow"
     ]
   },
   "enabledMcpjsonServers": [
