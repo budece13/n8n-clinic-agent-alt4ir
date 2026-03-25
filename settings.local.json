@@ -1,9 +1,0 @@
-{
-"agents": [
- {
-  "id": "n8n-expert",
-  "path": ".claude/agents/n8n-expert.md",
-  "description": "Create and check workflows for n8n"
- }
-]
-}
