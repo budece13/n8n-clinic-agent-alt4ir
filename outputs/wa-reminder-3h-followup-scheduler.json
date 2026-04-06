@@ -1,0 +1,405 @@
+{
+  "updatedAt": "2026-04-06T10:13:34.574Z",
+  "createdAt": "2026-03-31T16:47:55.018Z",
+  "id": "hN3gvmspLM5pTWFS",
+  "name": "WA-Reminder-3h-Followup-Scheduler",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Trigger Cada 15min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fetch-3h",
+      "name": "Buscar Citas 3h Followup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        300,
+        300
+      ],
+      "disabled": true,
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/v1/appointments/pending-reminders/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "3h_followup"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "hay-citas",
+      "name": "¿Hay Citas Sin Respuesta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        600,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "leftValue": "={{ ($json.results || []).length }}",
+              "rightValue": 0
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "split",
+      "name": "Procesar Uno a Uno",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        900,
+        200
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "formatear",
+      "name": "Formatear Mensaje Urgente 3h",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const cita = $input.first().json;\nconst fecha = new Date(cita.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid', timeStyle: 'short'});\n\nreturn [{ json: {\n  phone: cita.patient_phone,\n  phone_number_id: cita.phone_number_id || '',\n  message: `Hola ${cita.patient_name || ''}. Tu cita es hoy a las ${fecha}. Por favor, confirma tu asistencia respondiendo SÍ o NO. Si no confirmas, la clínica podría contactarte directamente.`,\n  appointment_id: cita.id\n}}];"
+      }
+    },
+    {
+      "id": "enviar-wa",
+      "name": "Enviar Recordatorio 3h WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1500,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v18.0/{{ $json.phone_number_id }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.phone }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"{{ $json.message }}\" }\n}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "rate-limit",
+      "name": "Rate Limit 1s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1800,
+        200
+      ],
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "log-vacio",
+      "name": "Log Run Vacío",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        900,
+        500
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "status",
+              "value": "no_3h_followups",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "error-trigger",
+      "name": "Error Trigger Global",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        600
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "error-log",
+      "name": "Error - Log Temporal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        300,
+        600
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "workflow",
+              "value": "WA-Reminder-3h-Followup-Scheduler",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "error",
+              "value": "={{ $json.execution?.error?.message || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "nota-desc",
+      "name": "Nota - Descripcion Workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -300,
+        -100
+      ],
+      "parameters": {
+        "content": "## WA-Reminder-3h-Followup-Scheduler\n\nFollowup urgente 3h antes de la cita para pacientes que no respondieron al recordatorio 24h.\nTrigger: cada 15 minutos, Europe/Madrid.\n\n### Estado\n⚠️ DESACTIVADO: El nodo de fetch está desactivado porque el endpoint GET /api/v1/appointments/pending-reminders/ no existe aún en Django.\n\nActivar cuando pending-reminders esté implementado en Django.\n\n### Endpoints pendientes\n- GET /api/v1/appointments/pending-reminders/\n- POST /api/agent/errors/",
+        "height": 350,
+        "width": 500
+      }
+    },
+    {
+      "id": "nota-endpoint",
+      "name": "Nota - Endpoint Pendiente",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        140
+      ],
+      "parameters": {
+        "content": "⚠️ ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/pending-reminders/ en clinic-app (Django) antes de activarse. Ver CLAUDE.md sección 5.",
+        "height": 100,
+        "width": 480
+      }
+    }
+  ],
+  "connections": {
+    "Trigger Cada 15min": {
+      "main": [
+        [
+          {
+            "node": "Buscar Citas 3h Followup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Citas 3h Followup": {
+      "main": [
+        [
+          {
+            "node": "¿Hay Citas Sin Respuesta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hay Citas Sin Respuesta?": {
+      "main": [
+        [
+          {
+            "node": "Procesar Uno a Uno",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Run Vacío",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Uno a Uno": {
+      "main": [
+        [
+          {
+            "node": "Formatear Mensaje Urgente 3h",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Formatear Mensaje Urgente 3h": {
+      "main": [
+        [
+          {
+            "node": "Enviar Recordatorio 3h WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Recordatorio 3h WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Rate Limit 1s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limit 1s": {
+      "main": [
+        [
+          {
+            "node": "Procesar Uno a Uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger Global": {
+      "main": [
+        [
+          {
+            "node": "Error - Log Temporal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timezone": "Europe/Madrid",
+    "saveDataErrorExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "36ca0d97-44a6-4ab4-a2c6-1944b50d8c5f",
+  "activeVersionId": null,
+  "versionCounter": 2,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-03-31T16:47:55.029Z",
+      "createdAt": "2026-03-31T16:47:55.029Z",
+      "role": "workflow:owner",
+      "workflowId": "hN3gvmspLM5pTWFS",
+      "projectId": "Uw7iGhGodpLTW8Zv",
+      "project": {
+        "updatedAt": "2026-03-27T04:32:05.440Z",
+        "createdAt": "2026-03-27T04:24:04.464Z",
+        "id": "Uw7iGhGodpLTW8Zv",
+        "name": "Jesús Dev <jesuslopezjaen03@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "fbbfb9bb-6047-4e9a-87a3-f8fffa66500b"
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2026-03-31T16:47:53.388Z",
+      "createdAt": "2026-03-31T16:47:53.388Z",
+      "id": "STkeOwvyOGyHXNaU",
+      "name": "Agente_Clínicas"
+    }
+  ],
+  "activeVersion": null
+}

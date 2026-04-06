@@ -1,0 +1,904 @@
+{
+  "updatedAt": "2026-04-06T10:11:28.739Z",
+  "createdAt": "2026-03-31T16:49:20.176Z",
+  "id": "rtLakHrc6xR9B8oH",
+  "name": "WA-Appointments-Manager",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "trigger-execute",
+      "name": "Trigger - Execute Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "router-accion",
+      "name": "Router por Accion",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        300,
+        400
+      ],
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.action }}",
+        "options": {
+          "fallbackOutput": "extra"
+        },
+        "outputs": {
+          "values": [
+            {
+              "label": "check_availability",
+              "value": "check_availability"
+            },
+            {
+              "label": "create",
+              "value": "create"
+            },
+            {
+              "label": "cancel",
+              "value": "cancel"
+            },
+            {
+              "label": "list_upcoming",
+              "value": "list_upcoming"
+            },
+            {
+              "label": "confirm_from_reminder",
+              "value": "confirm_from_reminder"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a-check-slots",
+      "name": "A - Consultar Disponibilidad",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        600,
+        0
+      ],
+      "disabled": true,
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/v1/appointments/available-slots/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "service",
+              "value": "={{ $json.service }}"
+            },
+            {
+              "name": "date",
+              "value": "={{ $json.preferred_date }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "a-respuesta-temporal",
+      "name": "A - Respuesta Temporal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: {\n  success: true,\n  response: 'Dime tu horario preferido y lo gestionamos. Te confirmaremos la disponibilidad lo antes posible.'\n}}];"
+      }
+    },
+    {
+      "id": "nota-check-availability",
+      "name": "Nota - Endpoint Disponibilidad Pendiente",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -180
+      ],
+      "parameters": {
+        "content": "⚠️ ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/available-slots/?service={id}&date={date} en clinic-app (Django) antes de activarse. Ver CLAUDE.md sección 5.\n\nAlternativa temporal: pedir hora preferida al paciente y crear cita directamente (staff confirma desde dashboard).",
+        "height": 160,
+        "width": 520
+      }
+    },
+    {
+      "id": "b-buscar-paciente",
+      "name": "B - Buscar Paciente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        600,
+        300
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/patients/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "b-preparar-datos-cita",
+      "name": "B - Preparar Datos Cita",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\nconst patientsRaw = $input.first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + trigger.phone);\n}\n\nconst patient = patients[0];\nconst date = trigger.preferred_date || '';\nconst time = trigger.preferred_time || '09:00';\nconst scheduledAt = date ? `${date}T${time}:00` : '';\n\n// Calcular end_at (1 hora por defecto)\nlet endAt = '';\nif (scheduledAt) {\n  const start = new Date(scheduledAt);\n  start.setHours(start.getHours() + 1);\n  endAt = start.toISOString().slice(0, 19);\n}\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: trigger.clinic_id,\n  service: trigger.service || '',\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: trigger.phone\n}}];"
+      }
+    },
+    {
+      "id": "b-crear-cita",
+      "name": "B - Crear Cita Django",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DJANGO_API_URL }}/api/appointments/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"clinic\": {{ $json.clinic_id }},\n  \"patient\": {{ $json.patient_id }},\n  \"service\": \"{{ $json.service }}\",\n  \"scheduled_at\": \"{{ $json.scheduled_at }}\",\n  \"end_at\": \"{{ $json.end_at }}\",\n  \"status\": \"pending\"\n}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "b-respuesta-crear",
+      "name": "B - Respuesta Crear Cita",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const cita = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nif (cita.id) {\n  const fecha = cita.scheduled_at ? new Date(cita.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid'}) : 'por confirmar';\n  return [{ json: {\n    success: true,\n    response: `Tu cita ha sido registrada para el ${fecha}. Estado: pendiente de confirmación. Te avisaremos cuando sea confirmada.`\n  }}];\n} else {\n  return [{ json: {\n    success: false,\n    response: 'No hemos podido crear tu cita en este momento. Por favor, llámanos para agendar tu visita.'\n  }}];\n}"
+      }
+    },
+    {
+      "id": "c-buscar-paciente-cancelar",
+      "name": "C - Buscar Paciente Cancelar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        600,
+        550
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/patients/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "c-buscar-cita-activa",
+      "name": "C - Buscar Cita Activa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        900,
+        550
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/appointments/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "patient",
+              "value": "={{ ($json.results || $json)[0].id }}"
+            },
+            {
+              "name": "status",
+              "value": "pending,confirmed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "c-obtener-token",
+      "name": "C - Obtener Token Cita",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        550
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/appointments/{{ ($json.results || $json)[0].id }}/status/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "c-cancelar-token",
+      "name": "C - Cancelar por Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1500,
+        550
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DJANGO_API_URL }}/api/public/appointments/{{ $json.confirmation_token }}/cancel/",
+        "options": {}
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "c-respuesta-cancel",
+      "name": "C - Respuesta Cancelacion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        550
+      ],
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\nif (result.status === 'cancelled' || result.id) {\n  return [{ json: { success: true, response: 'Tu cita ha sido cancelada correctamente. Si necesitas agendar otra, no dudes en escribirnos.' }}];\n} else {\n  return [{ json: { success: false, response: 'No hemos encontrado una cita activa para cancelar. ¿Puedes indicarnos más detalles?' }}];\n}"
+      }
+    },
+    {
+      "id": "d-buscar-citas-paciente",
+      "name": "D - Buscar Citas Paciente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        600,
+        750
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/patients/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "d-listar-citas",
+      "name": "D - Listar Citas Activas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        900,
+        750
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/appointments/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "patient",
+              "value": "={{ ($json.results || $json)[0].id }}"
+            },
+            {
+              "name": "status",
+              "value": "pending,confirmed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "id": "d-formatear-lista",
+      "name": "D - Formatear Lista Citas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        750
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst citas = raw.results || (Array.isArray(raw) ? raw : []);\n\nif (!citas.length) {\n  return [{ json: { success: true, response: 'No tienes citas pendientes en este momento.' }}];\n}\n\nconst lista = citas.map((c, i) => {\n  const fecha = new Date(c.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid'});\n  const estado = c.status === 'confirmed' ? 'Confirmada' : 'Pendiente';\n  return `${i+1}. ${fecha} - ${estado}`;\n}).join('\\n');\n\nreturn [{ json: { success: true, response: `Tus próximas citas:\\n${lista}` }}];"
+      }
+    },
+    {
+      "id": "e-obtener-estado-cita",
+      "name": "E - Obtener Estado Cita",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        600,
+        950
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/appointments/{{ $json.appointment_id }}/status/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "e-router-respuesta",
+      "name": "E - Router por Respuesta",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        900,
+        950
+      ],
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $('Trigger - Execute Workflow').first().json.response || 'confirm' }}",
+        "options": {
+          "fallbackOutput": "extra"
+        },
+        "outputs": {
+          "values": [
+            {
+              "label": "confirm",
+              "value": "confirm"
+            },
+            {
+              "label": "cancel",
+              "value": "cancel"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "e-confirmar-token",
+      "name": "E - Confirmar por Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        900
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DJANGO_API_URL }}/api/public/appointments/{{ $('E - Obtener Estado Cita').first().json.confirmation_token }}/confirm/",
+        "options": {}
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "e-respuesta-confirmacion",
+      "name": "E - Respuesta Confirmacion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        900
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, response: '¡Tu cita ha sido confirmada! Te esperamos. Si necesitas cambiar algo, escríbenos.' }}];"
+      }
+    },
+    {
+      "id": "e-cancelar-reminder-token",
+      "name": "E - Cancelar Reminder Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        1050
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DJANGO_API_URL }}/api/public/appointments/{{ $('E - Obtener Estado Cita').first().json.confirmation_token }}/cancel/",
+        "options": {}
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "e-respuesta-cancelacion-reminder",
+      "name": "E - Respuesta Cancelacion Reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        1050
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, response: 'Tu cita ha sido cancelada. Si deseas reprogramar, dime cuándo te viene bien.' }}];"
+      }
+    },
+    {
+      "id": "error-accion-no-reconocida",
+      "name": "Error - Accion No Reconocida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        1250
+      ],
+      "parameters": {
+        "jsCode": "const action = $('Trigger - Execute Workflow').first().json.action || 'desconocida';\nreturn [{ json: {\n  success: false,\n  response: 'No he entendido tu solicitud. Puedo ayudarte a agendar, consultar o cancelar citas.'\n}}];"
+      }
+    },
+    {
+      "id": "error-trigger-global",
+      "name": "Error Trigger Global",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1250
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "error-log-temporal",
+      "name": "Error - Log Temporal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        300,
+        1250
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "workflow",
+              "value": "WA-Appointments-Manager",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "error_message",
+              "value": "={{ $json.execution?.error?.message || 'Error desconocido' }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "error-respuesta-amigable",
+      "name": "Error - Respuesta Amigable",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        1400
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, response: 'En este momento no puedo procesar tu solicitud. Por favor, llámanos al teléfono de la clínica.' }}];"
+      }
+    },
+    {
+      "id": "nota-descripcion-wf",
+      "name": "Nota - Descripcion Workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -300,
+        -100
+      ],
+      "parameters": {
+        "content": "## WA-Appointments-Manager\n\nSub-workflow para gestión completa de citas.\n\n### Ramas\n- **check_availability**: DESACTIVADA (endpoint pendiente)\n- **create**: Buscar paciente → Crear cita en Django\n- **cancel**: Buscar paciente → Buscar cita activa → Obtener token → Cancelar por token público\n- **list_upcoming**: Buscar paciente → Listar citas pendientes/confirmadas\n- **confirm_from_reminder**: Obtener token → Confirmar/Cancelar por token público\n\n### Endpoints Django usados\n- GET /api/patients/?phone={phone}\n- GET /api/appointments/?patient={id}&status=pending,confirmed\n- POST /api/appointments/ (crear cita)\n- GET /api/appointments/{id}/status/ (obtener token)\n- POST /api/public/appointments/{token}/confirm/ (sin auth)\n- POST /api/public/appointments/{token}/cancel/ (sin auth)\n\n### Endpoints pendientes\n- GET /api/v1/appointments/available-slots/?service={id}&date={date}\n- POST /api/agent/errors/ (log errores, ReadOnly)",
+        "height": 580,
+        "width": 500
+      }
+    },
+    {
+      "id": "nota-error-pendiente",
+      "name": "Nota - Log Errores Pendiente",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -300,
+        1200
+      ],
+      "parameters": {
+        "content": "⚠️ ENDPOINT PENDIENTE: Requiere implementar POST /api/agent/errors/ (escritura) en clinic-app (Django). WorkflowErrorViewSet es ReadOnly. Ver CLAUDE.md sección 5.\n\nAlternativa temporal: log con Set node.",
+        "height": 120,
+        "width": 480
+      }
+    }
+  ],
+  "connections": {
+    "Trigger - Execute Workflow": {
+      "main": [
+        [
+          {
+            "node": "Router por Accion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router por Accion": {
+      "main": [
+        [
+          {
+            "node": "A - Respuesta Temporal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "B - Buscar Paciente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "C - Buscar Paciente Cancelar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "D - Buscar Citas Paciente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "E - Obtener Estado Cita",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error - Accion No Reconocida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Buscar Paciente": {
+      "main": [
+        [
+          {
+            "node": "B - Preparar Datos Cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Preparar Datos Cita": {
+      "main": [
+        [
+          {
+            "node": "B - Crear Cita Django",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B - Crear Cita Django": {
+      "main": [
+        [
+          {
+            "node": "B - Respuesta Crear Cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C - Buscar Paciente Cancelar": {
+      "main": [
+        [
+          {
+            "node": "C - Buscar Cita Activa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C - Buscar Cita Activa": {
+      "main": [
+        [
+          {
+            "node": "C - Obtener Token Cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C - Obtener Token Cita": {
+      "main": [
+        [
+          {
+            "node": "C - Cancelar por Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C - Cancelar por Token": {
+      "main": [
+        [
+          {
+            "node": "C - Respuesta Cancelacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D - Buscar Citas Paciente": {
+      "main": [
+        [
+          {
+            "node": "D - Listar Citas Activas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D - Listar Citas Activas": {
+      "main": [
+        [
+          {
+            "node": "D - Formatear Lista Citas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E - Obtener Estado Cita": {
+      "main": [
+        [
+          {
+            "node": "E - Router por Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E - Router por Respuesta": {
+      "main": [
+        [
+          {
+            "node": "E - Confirmar por Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "E - Cancelar Reminder Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "E - Respuesta Confirmacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E - Confirmar por Token": {
+      "main": [
+        [
+          {
+            "node": "E - Respuesta Confirmacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E - Cancelar Reminder Token": {
+      "main": [
+        [
+          {
+            "node": "E - Respuesta Cancelacion Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger Global": {
+      "main": [
+        [
+          {
+            "node": "Error - Log Temporal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error - Log Temporal": {
+      "main": [
+        [
+          {
+            "node": "Error - Respuesta Amigable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timezone": "Europe/Madrid",
+    "saveDataErrorExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "8b377f5b-983b-4d95-92b9-4f65fcca8266",
+  "activeVersionId": null,
+  "versionCounter": 2,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-03-31T16:49:20.182Z",
+      "createdAt": "2026-03-31T16:49:20.182Z",
+      "role": "workflow:owner",
+      "workflowId": "rtLakHrc6xR9B8oH",
+      "projectId": "Uw7iGhGodpLTW8Zv",
+      "project": {
+        "updatedAt": "2026-03-27T04:32:05.440Z",
+        "createdAt": "2026-03-27T04:24:04.464Z",
+        "id": "Uw7iGhGodpLTW8Zv",
+        "name": "Jesús Dev <jesuslopezjaen03@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "fbbfb9bb-6047-4e9a-87a3-f8fffa66500b"
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2026-03-31T16:47:53.388Z",
+      "createdAt": "2026-03-31T16:47:53.388Z",
+      "id": "STkeOwvyOGyHXNaU",
+      "name": "Agente_Clínicas"
+    }
+  ],
+  "activeVersion": null
+}

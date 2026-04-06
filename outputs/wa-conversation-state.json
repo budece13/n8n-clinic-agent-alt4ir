@@ -1,0 +1,652 @@
+{
+  "updatedAt": "2026-04-06T10:14:50.249Z",
+  "createdAt": "2026-03-31T16:48:56.017Z",
+  "id": "pcB4t3tlMT0AJIf6",
+  "name": "WA-Conversation-State",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Trigger - Entrada Sub-workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "router",
+      "name": "Router - Accion Solicitada",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        300,
+        400
+      ],
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.action }}",
+        "options": {
+          "fallbackOutput": "extra"
+        },
+        "outputs": {
+          "values": [
+            {
+              "label": "get_session",
+              "value": "get_session"
+            },
+            {
+              "label": "save_session",
+              "value": "save_session"
+            },
+            {
+              "label": "clear_session",
+              "value": "clear_session"
+            },
+            {
+              "label": "get_appointment_context",
+              "value": "get_appointment_context"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "get-session",
+      "name": "HTTP - Obtener Sesion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        600,
+        200
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "proc-session",
+      "name": "Procesar - Sesion Obtenida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst results = raw.results || (Array.isArray(raw) ? raw : []);\nconst session = results.length > 0 ? results[0] : null;\n\nreturn [{ json: {\n  exists: !!session,\n  session_id: session ? session.id : null,\n  phone: session ? session.phone : $('Trigger - Entrada Sub-workflow').first().json.phone,\n  session_data: session ? session.session_data : {},\n  last_interaction: session ? session.updated_at : null\n}}];"
+      }
+    },
+    {
+      "id": "prep-save",
+      "name": "Preparar - Datos Sesion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const input = $('Trigger - Entrada Sub-workflow').first().json;\nreturn [{ json: {\n  phone: input.phone,\n  clinic_id: input.clinic_id,\n  session_data: input.session_data || {},\n  session_id: input.session_id || null\n}}];"
+      }
+    },
+    {
+      "id": "save-check",
+      "name": "¿Sesion Existe para Update?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        900,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.session_id }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "update-session",
+      "name": "HTTP - Actualizar Sesion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        300
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/{{ $json.session_id }}/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session_data\": {{ JSON.stringify($json.session_data) }}\n}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "create-session",
+      "name": "HTTP - Crear Sesion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"clinic\": {{ $json.clinic_id || 1 }},\n  \"phone\": \"{{ $json.phone }}\",\n  \"session_data\": {{ JSON.stringify($json.session_data) }}\n}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "resp-save",
+      "name": "Respuesta - Sesion Guardada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\nreturn [{ json: { success: !!result.id, session_id: result.id || null, message: result.id ? 'Sesion guardada' : 'Error guardando sesion' }}];"
+      }
+    },
+    {
+      "id": "get-session-clear",
+      "name": "HTTP - Buscar Sesion para Limpiar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        600,
+        650
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "clear-session",
+      "name": "HTTP - Limpiar Sesion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        900,
+        650
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/{{ ($json.results || $json)[0].id }}/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session_data\": {}\n}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "resp-clear",
+      "name": "Respuesta - Sesion Limpiada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        650
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, message: 'Sesion limpiada correctamente' }}];"
+      }
+    },
+    {
+      "id": "get-patient-ctx",
+      "name": "HTTP - Buscar Paciente Contexto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        600,
+        850
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/patients/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "get-appt-ctx",
+      "name": "HTTP - Obtener Citas Contexto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        900,
+        850
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/appointments/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "patient",
+              "value": "={{ ($json.results || $json)[0].id }}"
+            },
+            {
+              "name": "status",
+              "value": "pending,confirmed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "proc-ctx",
+      "name": "Procesar - Contexto Cita",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        850
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst citas = raw.results || (Array.isArray(raw) ? raw : []);\n\nreturn [{ json: {\n  has_appointment_context: citas.length > 0,\n  upcoming_appointments: citas.length,\n  next_appointment: citas.length > 0 ? {\n    id: citas[0].id,\n    scheduled_at: citas[0].scheduled_at,\n    status: citas[0].status,\n    service: citas[0].service\n  } : null\n}}];"
+      }
+    },
+    {
+      "id": "fallback",
+      "name": "Respuesta - Accion No Reconocida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        1050
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, message: 'Accion no reconocida: ' + ($('Trigger - Entrada Sub-workflow').first().json.action || 'null') }}];"
+      }
+    },
+    {
+      "id": "error-trigger",
+      "name": "Error Trigger Global",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1100
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "error-log",
+      "name": "Error - Log Temporal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        300,
+        1100
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "workflow",
+              "value": "WA-Conversation-State",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "error",
+              "value": "={{ $json.execution?.error?.message || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "nota-desc",
+      "name": "Nota - Descripcion Workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -350,
+        -100
+      ],
+      "parameters": {
+        "content": "## WA-Conversation-State\n\nSub-workflow para gestión del estado de conversación.\n\n### Acciones\n- get_session: Obtener sesión por teléfono\n- save_session: Crear/actualizar sesión\n- clear_session: Limpiar datos de sesión\n- get_appointment_context: Obtener contexto de citas del paciente\n\n### Endpoints Django usados\n- GET /api/agent/sessions/?phone={phone}\n- POST /api/agent/sessions/\n- PATCH /api/agent/sessions/{id}/\n- GET /api/patients/?phone={phone}\n- GET /api/appointments/?patient={id}&status=pending,confirmed\n\n### SIN Postgres directo\nTodas las operaciones van por Django REST API.",
+        "height": 450,
+        "width": 500
+      }
+    }
+  ],
+  "connections": {
+    "Trigger - Entrada Sub-workflow": {
+      "main": [
+        [
+          {
+            "node": "Router - Accion Solicitada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router - Accion Solicitada": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Obtener Sesion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar - Datos Sesion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP - Buscar Sesion para Limpiar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP - Buscar Paciente Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta - Accion No Reconocida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Obtener Sesion": {
+      "main": [
+        [
+          {
+            "node": "Procesar - Sesion Obtenida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar - Datos Sesion": {
+      "main": [
+        [
+          {
+            "node": "¿Sesion Existe para Update?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Sesion Existe para Update?": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Actualizar Sesion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP - Crear Sesion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Actualizar Sesion": {
+      "main": [
+        [
+          {
+            "node": "Respuesta - Sesion Guardada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Crear Sesion": {
+      "main": [
+        [
+          {
+            "node": "Respuesta - Sesion Guardada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Buscar Sesion para Limpiar": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Limpiar Sesion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Limpiar Sesion": {
+      "main": [
+        [
+          {
+            "node": "Respuesta - Sesion Limpiada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Buscar Paciente Contexto": {
+      "main": [
+        [
+          {
+            "node": "HTTP - Obtener Citas Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP - Obtener Citas Contexto": {
+      "main": [
+        [
+          {
+            "node": "Procesar - Contexto Cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger Global": {
+      "main": [
+        [
+          {
+            "node": "Error - Log Temporal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timezone": "Europe/Madrid",
+    "saveDataErrorExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "40ccd74a-80a2-484a-b760-d1fb4cee69e2",
+  "activeVersionId": null,
+  "versionCounter": 2,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-03-31T16:48:56.026Z",
+      "createdAt": "2026-03-31T16:48:56.026Z",
+      "role": "workflow:owner",
+      "workflowId": "pcB4t3tlMT0AJIf6",
+      "projectId": "Uw7iGhGodpLTW8Zv",
+      "project": {
+        "updatedAt": "2026-03-27T04:32:05.440Z",
+        "createdAt": "2026-03-27T04:24:04.464Z",
+        "id": "Uw7iGhGodpLTW8Zv",
+        "name": "Jesús Dev <jesuslopezjaen03@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "fbbfb9bb-6047-4e9a-87a3-f8fffa66500b"
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2026-03-31T16:47:53.388Z",
+      "createdAt": "2026-03-31T16:47:53.388Z",
+      "id": "STkeOwvyOGyHXNaU",
+      "name": "Agente_Clínicas"
+    }
+  ],
+  "activeVersion": null
+}
