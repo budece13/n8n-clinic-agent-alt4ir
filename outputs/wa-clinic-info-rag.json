@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-04-06T10:16:09.568Z",
+  "updatedAt": "2026-04-07T19:14:20.093Z",
   "createdAt": "2026-03-31T16:48:42.261Z",
   "id": "43XUwyqUHZn1KBT2",
   "name": "WA-Clinic-Info-RAG",
@@ -8,6 +8,9 @@
   "isArchived": false,
   "nodes": [
     {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
       "id": "trigger",
       "name": "Trigger - Execute Workflow",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
@@ -15,20 +18,9 @@
       "position": [
         0,
         400
-      ],
-      "parameters": {
-        "inputSource": "passthrough"
-      }
+      ]
     },
     {
-      "id": "cargar-kb",
-      "name": "Cargar Knowledge Base Django",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        300,
-        400
-      ],
       "parameters": {
         "url": "={{ $env.DJANGO_API_URL }}/api/knowledge/entries/",
         "authentication": "genericCredentialType",
@@ -52,6 +44,14 @@
         },
         "options": {}
       },
+      "id": "cargar-kb",
+      "name": "Cargar Knowledge Base Django",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        304,
+        400
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "rEUbsss2SSHpZ6m7",
@@ -61,14 +61,6 @@
       "continueOnFail": true
     },
     {
-      "id": "cargar-servicios",
-      "name": "Cargar Servicios Clinica",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        300,
-        600
-      ],
       "parameters": {
         "url": "={{ $env.DJANGO_API_URL }}/api/services/",
         "authentication": "genericCredentialType",
@@ -88,6 +80,14 @@
         },
         "options": {}
       },
+      "id": "cargar-servicios",
+      "name": "Cargar Servicios Clinica",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        304,
+        608
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "rEUbsss2SSHpZ6m7",
@@ -97,20 +97,20 @@
       "continueOnFail": true
     },
     {
-      "id": "datos-clinica",
-      "name": "Obtener Datos Clinica",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        300,
-        200
-      ],
       "parameters": {
         "url": "={{ $env.DJANGO_API_URL }}/api/clinics/{{ $json.clinic_id }}/",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {}
       },
+      "id": "datos-clinica",
+      "name": "Obtener Datos Clinica",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        304,
+        208
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "rEUbsss2SSHpZ6m7",
@@ -120,27 +120,19 @@
       "continueOnFail": true
     },
     {
+      "parameters": {
+        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\n\n// Knowledge Base\nlet kbEntries = [];\ntry {\n  const kbRaw = $('Cargar Knowledge Base Django').first().json;\n  kbEntries = kbRaw.results || (Array.isArray(kbRaw) ? kbRaw : []);\n} catch(e) {}\n\n// Servicios\nlet servicios = [];\ntry {\n  const svcRaw = $('Cargar Servicios Clinica').first().json;\n  servicios = svcRaw.results || (Array.isArray(svcRaw) ? svcRaw : []);\n} catch(e) {}\n\n// Datos cl\u00ednica\nlet clinica = {};\ntry {\n  clinica = $('Obtener Datos Clinica').first().json;\n} catch(e) {}\n\n// Formatear KB como contexto\nconst kbContext = kbEntries.map(e => `Q: ${e.question || e.title}\\nA: ${e.answer || e.content}`).join('\\n\\n');\n\n// Formatear servicios\nconst svcContext = servicios.map(s => `- ${s.name}: ${s.description || ''} (${s.duration_minutes || '?'} min, ${s.price || '?'}\u20ac)`).join('\\n');\n\nconst context = `CLINICA: ${clinica.name || 'Cl\u00ednica'}\nTELEFONO: ${clinica.phone || 'No disponible'}\nDIRECCION: ${clinica.address || 'No disponible'}\n\nSERVICIOS DISPONIBLES:\n${svcContext || 'No hay servicios cargados.'}\n\nPREGUNTAS FRECUENTES:\n${kbContext || 'No hay FAQ cargadas.'}`;\n\nreturn [{ json: {\n  question: trigger.question,\n  clinic_id: trigger.clinic_id,\n  context: context,\n  has_kb: kbEntries.length > 0,\n  has_services: servicios.length > 0\n}}];"
+      },
       "id": "combinar-contexto",
       "name": "Combinar Contexto Clinica",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        700,
+        704,
         400
-      ],
-      "parameters": {
-        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\n\n// Knowledge Base\nlet kbEntries = [];\ntry {\n  const kbRaw = $('Cargar Knowledge Base Django').first().json;\n  kbEntries = kbRaw.results || (Array.isArray(kbRaw) ? kbRaw : []);\n} catch(e) {}\n\n// Servicios\nlet servicios = [];\ntry {\n  const svcRaw = $('Cargar Servicios Clinica').first().json;\n  servicios = svcRaw.results || (Array.isArray(svcRaw) ? svcRaw : []);\n} catch(e) {}\n\n// Datos clínica\nlet clinica = {};\ntry {\n  clinica = $('Obtener Datos Clinica').first().json;\n} catch(e) {}\n\n// Formatear KB como contexto\nconst kbContext = kbEntries.map(e => `Q: ${e.question || e.title}\\nA: ${e.answer || e.content}`).join('\\n\\n');\n\n// Formatear servicios\nconst svcContext = servicios.map(s => `- ${s.name}: ${s.description || ''} (${s.duration_minutes || '?'} min, ${s.price || '?'}€)`).join('\\n');\n\nconst context = `CLINICA: ${clinica.name || 'Clínica'}\nTELEFONO: ${clinica.phone || 'No disponible'}\nDIRECCION: ${clinica.address || 'No disponible'}\n\nSERVICIOS DISPONIBLES:\n${svcContext || 'No hay servicios cargados.'}\n\nPREGUNTAS FRECUENTES:\n${kbContext || 'No hay FAQ cargadas.'}`;\n\nreturn [{ json: {\n  question: trigger.question,\n  clinic_id: trigger.clinic_id,\n  context: context,\n  has_kb: kbEntries.length > 0,\n  has_services: servicios.length > 0\n}}];"
-      }
+      ]
     },
     {
-      "id": "tiene-datos",
-      "name": "¿Tiene Datos para Responder?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        1000,
-        400
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -170,70 +162,58 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "tiene-datos",
+      "name": "\u00bfTiene Datos para Responder?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1008,
+        400
+      ]
     },
     {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Usando SOLO la informaci\u00f3n del contexto, responde la pregunta del paciente de forma concisa y profesional en espa\u00f1ol. No inventes informaci\u00f3n. Si no encuentras la respuesta en el contexto, di que no tienes esa informaci\u00f3n y sugiere llamar a la cl\u00ednica.\n\nCONTEXTO:\n{{ $json.context }}\n\nPREGUNTA: {{ $json.question }}\n\nRESPUESTA:"
+      },
       "id": "generar-respuesta",
       "name": "Generar Respuesta con Contexto",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.4,
       "position": [
-        1300,
-        300
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "=Usando SOLO la información del contexto, responde la pregunta del paciente de forma concisa y profesional en español. No inventes información. Si no encuentras la respuesta en el contexto, di que no tienes esa información y sugiere llamar a la clínica.\n\nCONTEXTO:\n{{ $json.context }}\n\nPREGUNTA: {{ $json.question }}\n\nRESPUESTA:"
-      }
+        1312,
+        304
+      ]
     },
     {
-      "id": "openai-gen",
-      "name": "OpenAI - Generador",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        1300,
-        540
-      ],
       "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "id",
-          "value": "gpt-4o"
-        },
-        "builtInTools": {},
-        "options": {
-          "temperature": 0.3
-        }
-      }
-    },
-    {
+        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\nreturn [{ json: {\n  response: 'No dispongo de esa informaci\u00f3n en este momento. Te recomiendo llamar directamente a la cl\u00ednica para que puedan ayudarte.',\n  question: trigger.question,\n  source: 'default'\n}}];"
+      },
       "id": "resp-defecto",
       "name": "Respuesta por Defecto",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1300,
-        550
-      ],
-      "parameters": {
-        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\nreturn [{ json: {\n  response: 'No dispongo de esa información en este momento. Te recomiendo llamar directamente a la clínica para que puedan ayudarte.',\n  question: trigger.question,\n  source: 'default'\n}}];"
-      }
+        1312,
+        608
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "const llmOutput = $input.first().json;\nreturn [{ json: {\n  response: llmOutput.text || llmOutput.output || llmOutput.response || 'No pude generar una respuesta.',\n  source: 'knowledge_base'\n}}];"
+      },
       "id": "resp-final",
       "name": "Devolver Respuesta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         1600,
-        300
-      ],
-      "parameters": {
-        "jsCode": "const llmOutput = $input.first().json;\nreturn [{ json: {\n  response: llmOutput.text || llmOutput.output || llmOutput.response || 'No pude generar una respuesta.',\n  source: 'knowledge_base'\n}}];"
-      }
+        304
+      ]
     },
     {
+      "parameters": {},
       "id": "error-trigger",
       "name": "Error Trigger Global",
       "type": "n8n-nodes-base.errorTrigger",
@@ -241,20 +221,10 @@
       "position": [
         0,
         800
-      ],
-      "parameters": {}
+      ]
     },
     {
-      "id": "error-log",
-      "name": "Error - Log Temporal",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        300,
-        800
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -272,21 +242,55 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "error-log",
+      "name": "Error - Log Temporal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        800
+      ]
     },
     {
+      "parameters": {
+        "content": "## WA-Clinic-Info-RAG\n\nSub-workflow que responde preguntas sobre la cl\u00ednica usando Knowledge Base, servicios y datos de la cl\u00ednica de Django.\n\n### Endpoints Django usados\n- GET /api/knowledge/entries/?clinic={id}&active=true&kb_type=faq\n- GET /api/services/?clinic={id}&is_active=true\n- GET /api/clinics/{id}/\n\n### Endpoints pendientes\n- GET /api/v1/clinics/{id}/schedule/ (horarios apertura)\n  \u2192 Alternativa: horarios como texto en knowledge base\n\n### LLM\n- GPT-4o con temperatura 0.3\n- Solo responde con info del contexto, nunca inventa\n\n### SIN Postgres directo\nTodas las operaciones van por Django REST API.",
+        "height": 420,
+        "width": 500
+      },
       "id": "nota-desc",
       "name": "Nota - Descripcion Workflow",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -350,
-        -50
-      ],
+        -352,
+        -48
+      ]
+    },
+    {
       "parameters": {
-        "content": "## WA-Clinic-Info-RAG\n\nSub-workflow que responde preguntas sobre la clínica usando Knowledge Base, servicios y datos de la clínica de Django.\n\n### Endpoints Django usados\n- GET /api/knowledge/entries/?clinic={id}&active=true&kb_type=faq\n- GET /api/services/?clinic={id}&is_active=true\n- GET /api/clinics/{id}/\n\n### Endpoints pendientes\n- GET /api/v1/clinics/{id}/schedule/ (horarios apertura)\n  → Alternativa: horarios como texto en knowledge base\n\n### LLM\n- GPT-4o con temperatura 0.3\n- Solo responde con info del contexto, nunca inventa\n\n### SIN Postgres directo\nTodas las operaciones van por Django REST API.",
-        "height": 420,
-        "width": 500
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1312,
+        464
+      ],
+      "id": "52291157-eb23-4e19-926c-e38b937055ea",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "JudIjAegKjStIyN5",
+          "name": "OpenAI Credential"
+        }
       }
     }
   ],
@@ -327,14 +331,14 @@
       "main": [
         [
           {
-            "node": "¿Tiene Datos para Responder?",
+            "node": "\u00bfTiene Datos para Responder?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "¿Tiene Datos para Responder?": {
+    "\u00bfTiene Datos para Responder?": {
       "main": [
         [
           {
@@ -373,6 +377,17 @@
           }
         ]
       ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generar Respuesta con Contexto",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -384,11 +399,13 @@
     "callerPolicy": "workflowsFromSameOwner"
   },
   "staticData": null,
-  "meta": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
   "pinData": {},
-  "versionId": "1d39f82c-45e0-4f78-9aa1-13d5006af773",
+  "versionId": "616b20f6-8287-4105-af32-169c592ab4f6",
   "activeVersionId": null,
-  "versionCounter": 2,
+  "versionCounter": 7,
   "triggerCount": 0,
   "shared": [
     {
@@ -401,7 +418,7 @@
         "updatedAt": "2026-03-27T04:32:05.440Z",
         "createdAt": "2026-03-27T04:24:04.464Z",
         "id": "Uw7iGhGodpLTW8Zv",
-        "name": "Jesús Dev <jesuslopezjaen03@gmail.com>",
+        "name": "Jes\u00fas Dev <jesuslopezjaen03@gmail.com>",
         "type": "personal",
         "icon": null,
         "description": null,
@@ -414,7 +431,7 @@
       "updatedAt": "2026-03-31T16:47:53.388Z",
       "createdAt": "2026-03-31T16:47:53.388Z",
       "id": "STkeOwvyOGyHXNaU",
-      "name": "Agente_Clínicas"
+      "name": "Agente_Cl\u00ednicas"
     }
   ],
   "activeVersion": null

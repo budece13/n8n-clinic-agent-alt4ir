@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-04-02T12:29:26.731Z",
+  "updatedAt": "2026-04-07T16:56:23.183Z",
   "createdAt": "2026-04-02T12:29:26.731Z",
   "id": "01xZkbBQIBBYCdK9",
   "name": "WA-Patient-Onboarding",
@@ -8,27 +8,19 @@
   "isArchived": false,
   "nodes": [
     {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
       "id": "trigger-nuevo-paciente",
       "name": "Trigger - Nuevo Paciente",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
         0,
-        300
-      ],
-      "parameters": {
-        "inputSource": "passthrough"
-      }
+        304
+      ]
     },
     {
-      "id": "crear-paciente-django",
-      "name": "Crear Paciente en Django",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        300,
-        300
-      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $env.DJANGO_API_URL }}/api/patients/",
@@ -46,17 +38,17 @@
         "jsonBody": "={\n  \"clinic\": {{ $json.clinic_id }},\n  \"first_name\": \"{{ $json.contact_name || 'Nuevo Paciente' }}\",\n  \"phone\": \"{{ $json.phone }}\"\n}",
         "options": {}
       },
-      "continueOnFail": true
-    },
-    {
-      "id": "crear-sesion-conversacional",
-      "name": "Crear Sesión Conversacional",
+      "id": "crear-paciente-django",
+      "name": "Crear Paciente en Django",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        600,
-        300
+        304,
+        304
       ],
+      "continueOnFail": true
+    },
+    {
       "parameters": {
         "method": "POST",
         "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
@@ -74,43 +66,42 @@
         "jsonBody": "={\n  \"clinic\": {{ $('Trigger - Nuevo Paciente').first().json.clinic_id }},\n  \"phone\": \"{{ $('Trigger - Nuevo Paciente').first().json.phone }}\"\n}",
         "options": {}
       },
+      "id": "crear-sesion-conversacional",
+      "name": "Crear Sesi\u00f3n Conversacional",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        608,
+        304
+      ],
       "continueOnFail": true
     },
     {
+      "parameters": {
+        "jsCode": "const trigger = $('Trigger - Nuevo Paciente').first().json;\nconst patient = $('Crear Paciente en Django').first().json;\n\nreturn [{ json: {\n  response: '\u00a1Hola! Bienvenido/a a nuestra cl\u00ednica. Soy tu asistente virtual y estoy aqu\u00ed para ayudarte. Puedo informarte sobre nuestros servicios, agendar una cita o resolver tus dudas. \u00bfEn qu\u00e9 puedo ayudarte?',\n  patient_id: patient.id || null,\n  phone: trigger.phone,\n  clinic_id: trigger.clinic_id,\n  is_new_patient: true\n}}];"
+      },
       "id": "preparar-mensaje-bienvenida",
       "name": "Preparar Mensaje Bienvenida",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        900,
-        300
-      ],
-      "parameters": {
-        "jsCode": "const trigger = $('Trigger - Nuevo Paciente').first().json;\nconst patient = $('Crear Paciente en Django').first().json;\n\nreturn [{ json: {\n  response: '¡Hola! Bienvenido/a a nuestra clínica. Soy tu asistente virtual y estoy aquí para ayudarte. Puedo informarte sobre nuestros servicios, agendar una cita o resolver tus dudas. ¿En qué puedo ayudarte?',\n  patient_id: patient.id || null,\n  phone: trigger.phone,\n  clinic_id: trigger.clinic_id,\n  is_new_patient: true\n}}];"
-      }
+        912,
+        304
+      ]
     },
     {
+      "parameters": {},
       "id": "error-trigger-global",
       "name": "Error Trigger Global",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
       "position": [
         0,
-        600
-      ],
-      "parameters": {}
+        608
+      ]
     },
     {
-      "id": "log-error-temporal",
-      "name": "Log Error Temporal",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        300,
-        600
-      ],
       "parameters": {
-        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -140,37 +131,44 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "log-error-temporal",
+      "name": "Log Error Temporal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        608
+      ]
     },
     {
+      "parameters": {
+        "content": "## WA-Patient-Onboarding\n\nSub-workflow para onboarding de pacientes nuevos.\nSe ejecuta cuando el Orchestrator detecta un tel\u00e9fono no registrado.\n\n### Endpoints usados\n- POST /api/patients/ \u2014 Crear paciente\n- POST /api/agent/sessions/ \u2014 Crear sesi\u00f3n\n\n### Endpoints pendientes\n- POST /api/agent/errors/ \u2014 Log de errores (ReadOnly en Django)\n\n### Autenticaci\u00f3n\nApi-Key via $env.N8N_DJANGO_API_KEY",
+        "height": 380,
+        "width": 480
+      },
       "id": "nota-descripcion",
-      "name": "Nota - Descripción Workflow",
+      "name": "Nota - Descripci\u00f3n Workflow",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -280,
-        -60
-      ],
-      "parameters": {
-        "content": "## WA-Patient-Onboarding\n\nSub-workflow para onboarding de pacientes nuevos.\nSe ejecuta cuando el Orchestrator detecta un teléfono no registrado.\n\n### Endpoints usados\n- POST /api/patients/ — Crear paciente\n- POST /api/agent/sessions/ — Crear sesión\n\n### Endpoints pendientes\n- POST /api/agent/errors/ — Log de errores (ReadOnly en Django)\n\n### Autenticación\nApi-Key via $env.N8N_DJANGO_API_KEY",
-        "height": 380,
-        "width": 480
-      }
+        -304,
+        -96
+      ]
     },
     {
+      "parameters": {
+        "content": "\u26a0\ufe0f ENDPOINT PENDIENTE: Este workflow loguea errores temporalmente con Set node.\nRequiere implementar POST /api/agent/errors/ (escritura) en clinic-app (Django) antes de poder persistir errores en BD.\nVer CLAUDE.md secci\u00f3n 5.",
+        "width": 480
+      },
       "id": "nota-endpoint-pendiente",
       "name": "Nota - Endpoint Errores Pendiente",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -280,
-        540
-      ],
-      "parameters": {
-        "content": "⚠️ ENDPOINT PENDIENTE: Este workflow loguea errores temporalmente con Set node.\nRequiere implementar POST /api/agent/errors/ (escritura) en clinic-app (Django) antes de poder persistir errores en BD.\nVer CLAUDE.md sección 5.",
-        "height": 160,
-        "width": 480
-      }
+        -288,
+        544
+      ]
     }
   ],
   "connections": {
@@ -189,14 +187,14 @@
       "main": [
         [
           {
-            "node": "Crear Sesión Conversacional",
+            "node": "Crear Sesi\u00f3n Conversacional",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Crear Sesión Conversacional": {
+    "Crear Sesi\u00f3n Conversacional": {
       "main": [
         [
           {
@@ -228,10 +226,10 @@
   },
   "staticData": null,
   "meta": null,
-  "pinData": null,
-  "versionId": "839c0692-d386-4060-9713-a98275016cec",
+  "pinData": {},
+  "versionId": "3df64eb9-6d0a-4b6b-b2b0-a352837b221c",
   "activeVersionId": null,
-  "versionCounter": 1,
+  "versionCounter": 2,
   "triggerCount": 0,
   "shared": [
     {
@@ -244,7 +242,7 @@
         "updatedAt": "2026-03-27T04:32:05.440Z",
         "createdAt": "2026-03-27T04:24:04.464Z",
         "id": "Uw7iGhGodpLTW8Zv",
-        "name": "Jesús Dev <jesuslopezjaen03@gmail.com>",
+        "name": "Jes\u00fas Dev <jesuslopezjaen03@gmail.com>",
         "type": "personal",
         "icon": null,
         "description": null,

@@ -52,7 +52,7 @@
     },
     {
       "id": "hay-citas",
-      "name": "¿Hay Citas Pendientes?",
+      "name": "\u00bfHay Citas Pendientes?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
@@ -106,7 +106,7 @@
         200
       ],
       "parameters": {
-        "jsCode": "const cita = $input.first().json;\nconst fecha = new Date(cita.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid', dateStyle: 'long', timeStyle: 'short'});\n\nreturn [{ json: {\n  phone: cita.patient_phone,\n  phone_number_id: cita.phone_number_id || '',\n  message: `Hola ${cita.patient_name || ''}. Te recordamos tu cita mañana ${fecha}. ¿Puedes confirmar tu asistencia? Responde SÍ para confirmar o NO para cancelar.`,\n  appointment_id: cita.id,\n  confirmation_token: cita.confirmation_token || ''\n}}];"
+        "jsCode": "const cita = $input.first().json;\nconst fecha = new Date(cita.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid', dateStyle: 'long', timeStyle: 'short'});\n\nreturn [{ json: {\n  phone: cita.patient_phone,\n  phone_number_id: cita.phone_number_id || '',\n  message: `Hola ${cita.patient_name || ''}. Te recordamos tu cita ma\u00f1ana ${fecha}. \u00bfPuedes confirmar tu asistencia? Responde S\u00cd para confirmar o NO para cancelar.`,\n  appointment_id: cita.id,\n  confirmation_token: cita.confirmation_token || ''\n}}];"
       }
     },
     {
@@ -152,7 +152,7 @@
     },
     {
       "id": "log-run-vacio",
-      "name": "Log Run Vacío",
+      "name": "Log Run Vac\u00edo",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
@@ -231,7 +231,7 @@
         -100
       ],
       "parameters": {
-        "content": "## WA-Reminder-24h-Scheduler\n\nEnvía recordatorios WhatsApp 24h antes de la cita.\nTrigger: cada hora, Europe/Madrid.\n\n### Estado\n⚠️ DESACTIVADO: El nodo de fetch está desactivado porque el endpoint \nGET /api/v1/appointments/pending-reminders/ no existe aún en Django.\n\nActivar cuando pending-reminders esté implementado en Django.\n\n### Endpoints pendientes\n- GET /api/v1/appointments/pending-reminders/\n- POST /api/agent/errors/ (log errores)\n\n### Flujo\n1. Cron cada hora → Fetch citas (DISABLED) → Filtrar → Loop → Formatear → Enviar WA → Rate limit 1s",
+        "content": "## WA-Reminder-24h-Scheduler\n\nEnv\u00eda recordatorios WhatsApp 24h antes de la cita.\nTrigger: cada hora, Europe/Madrid.\n\n### Estado\n\u26a0\ufe0f DESACTIVADO: El nodo de fetch est\u00e1 desactivado porque el endpoint \nGET /api/v1/appointments/pending-reminders/ no existe a\u00fan en Django.\n\nActivar cuando pending-reminders est\u00e9 implementado en Django.\n\n### Endpoints pendientes\n- GET /api/v1/appointments/pending-reminders/\n- POST /api/agent/errors/ (log errores)\n\n### Flujo\n1. Cron cada hora \u2192 Fetch citas (DISABLED) \u2192 Filtrar \u2192 Loop \u2192 Formatear \u2192 Enviar WA \u2192 Rate limit 1s",
         "height": 380,
         "width": 500
       }
@@ -246,7 +246,7 @@
         140
       ],
       "parameters": {
-        "content": "⚠️ ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/pending-reminders/ en clinic-app (Django) antes de activarse. Ver CLAUDE.md sección 5.",
+        "content": "\u26a0\ufe0f ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/pending-reminders/ en clinic-app (Django) antes de activarse. Ver CLAUDE.md secci\u00f3n 5.",
         "height": 100,
         "width": 480
       }
@@ -268,14 +268,14 @@
       "main": [
         [
           {
-            "node": "¿Hay Citas Pendientes?",
+            "node": "\u00bfHay Citas Pendientes?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "¿Hay Citas Pendientes?": {
+    "\u00bfHay Citas Pendientes?": {
       "main": [
         [
           {
@@ -286,7 +286,7 @@
         ],
         [
           {
-            "node": "Log Run Vacío",
+            "node": "Log Run Vac\u00edo",
             "type": "main",
             "index": 0
           }
@@ -376,7 +376,7 @@
         "updatedAt": "2026-03-27T04:32:05.440Z",
         "createdAt": "2026-03-27T04:24:04.464Z",
         "id": "Uw7iGhGodpLTW8Zv",
-        "name": "Jesús Dev <jesuslopezjaen03@gmail.com>",
+        "name": "Jes\u00fas Dev <jesuslopezjaen03@gmail.com>",
         "type": "personal",
         "icon": null,
         "description": null,
@@ -389,7 +389,7 @@
       "updatedAt": "2026-03-31T16:47:53.388Z",
       "createdAt": "2026-03-31T16:47:53.388Z",
       "id": "STkeOwvyOGyHXNaU",
-      "name": "Agente_Clínicas"
+      "name": "Agente_Cl\u00ednicas"
     }
   ],
   "activeVersion": null

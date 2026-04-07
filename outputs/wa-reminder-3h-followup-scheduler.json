@@ -61,7 +61,7 @@
     },
     {
       "id": "hay-citas",
-      "name": "¿Hay Citas Sin Respuesta?",
+      "name": "\u00bfHay Citas Sin Respuesta?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
@@ -115,7 +115,7 @@
         200
       ],
       "parameters": {
-        "jsCode": "const cita = $input.first().json;\nconst fecha = new Date(cita.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid', timeStyle: 'short'});\n\nreturn [{ json: {\n  phone: cita.patient_phone,\n  phone_number_id: cita.phone_number_id || '',\n  message: `Hola ${cita.patient_name || ''}. Tu cita es hoy a las ${fecha}. Por favor, confirma tu asistencia respondiendo SÍ o NO. Si no confirmas, la clínica podría contactarte directamente.`,\n  appointment_id: cita.id\n}}];"
+        "jsCode": "const cita = $input.first().json;\nconst fecha = new Date(cita.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid', timeStyle: 'short'});\n\nreturn [{ json: {\n  phone: cita.patient_phone,\n  phone_number_id: cita.phone_number_id || '',\n  message: `Hola ${cita.patient_name || ''}. Tu cita es hoy a las ${fecha}. Por favor, confirma tu asistencia respondiendo S\u00cd o NO. Si no confirmas, la cl\u00ednica podr\u00eda contactarte directamente.`,\n  appointment_id: cita.id\n}}];"
       }
     },
     {
@@ -161,7 +161,7 @@
     },
     {
       "id": "log-vacio",
-      "name": "Log Run Vacío",
+      "name": "Log Run Vac\u00edo",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
@@ -240,7 +240,7 @@
         -100
       ],
       "parameters": {
-        "content": "## WA-Reminder-3h-Followup-Scheduler\n\nFollowup urgente 3h antes de la cita para pacientes que no respondieron al recordatorio 24h.\nTrigger: cada 15 minutos, Europe/Madrid.\n\n### Estado\n⚠️ DESACTIVADO: El nodo de fetch está desactivado porque el endpoint GET /api/v1/appointments/pending-reminders/ no existe aún en Django.\n\nActivar cuando pending-reminders esté implementado en Django.\n\n### Endpoints pendientes\n- GET /api/v1/appointments/pending-reminders/\n- POST /api/agent/errors/",
+        "content": "## WA-Reminder-3h-Followup-Scheduler\n\nFollowup urgente 3h antes de la cita para pacientes que no respondieron al recordatorio 24h.\nTrigger: cada 15 minutos, Europe/Madrid.\n\n### Estado\n\u26a0\ufe0f DESACTIVADO: El nodo de fetch est\u00e1 desactivado porque el endpoint GET /api/v1/appointments/pending-reminders/ no existe a\u00fan en Django.\n\nActivar cuando pending-reminders est\u00e9 implementado en Django.\n\n### Endpoints pendientes\n- GET /api/v1/appointments/pending-reminders/\n- POST /api/agent/errors/",
         "height": 350,
         "width": 500
       }
@@ -255,7 +255,7 @@
         140
       ],
       "parameters": {
-        "content": "⚠️ ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/pending-reminders/ en clinic-app (Django) antes de activarse. Ver CLAUDE.md sección 5.",
+        "content": "\u26a0\ufe0f ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/pending-reminders/ en clinic-app (Django) antes de activarse. Ver CLAUDE.md secci\u00f3n 5.",
         "height": 100,
         "width": 480
       }
@@ -277,14 +277,14 @@
       "main": [
         [
           {
-            "node": "¿Hay Citas Sin Respuesta?",
+            "node": "\u00bfHay Citas Sin Respuesta?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "¿Hay Citas Sin Respuesta?": {
+    "\u00bfHay Citas Sin Respuesta?": {
       "main": [
         [
           {
@@ -295,7 +295,7 @@
         ],
         [
           {
-            "node": "Log Run Vacío",
+            "node": "Log Run Vac\u00edo",
             "type": "main",
             "index": 0
           }
@@ -385,7 +385,7 @@
         "updatedAt": "2026-03-27T04:32:05.440Z",
         "createdAt": "2026-03-27T04:24:04.464Z",
         "id": "Uw7iGhGodpLTW8Zv",
-        "name": "Jesús Dev <jesuslopezjaen03@gmail.com>",
+        "name": "Jes\u00fas Dev <jesuslopezjaen03@gmail.com>",
         "type": "personal",
         "icon": null,
         "description": null,
@@ -398,7 +398,7 @@
       "updatedAt": "2026-03-31T16:47:53.388Z",
       "createdAt": "2026-03-31T16:47:53.388Z",
       "id": "STkeOwvyOGyHXNaU",
-      "name": "Agente_Clínicas"
+      "name": "Agente_Cl\u00ednicas"
     }
   ],
   "activeVersion": null

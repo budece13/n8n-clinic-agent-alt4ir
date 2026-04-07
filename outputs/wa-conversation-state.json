@@ -117,7 +117,7 @@
     },
     {
       "id": "save-check",
-      "name": "¿Sesion Existe para Update?",
+      "name": "\u00bfSesion Existe para Update?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
@@ -431,7 +431,7 @@
         -100
       ],
       "parameters": {
-        "content": "## WA-Conversation-State\n\nSub-workflow para gestión del estado de conversación.\n\n### Acciones\n- get_session: Obtener sesión por teléfono\n- save_session: Crear/actualizar sesión\n- clear_session: Limpiar datos de sesión\n- get_appointment_context: Obtener contexto de citas del paciente\n\n### Endpoints Django usados\n- GET /api/agent/sessions/?phone={phone}\n- POST /api/agent/sessions/\n- PATCH /api/agent/sessions/{id}/\n- GET /api/patients/?phone={phone}\n- GET /api/appointments/?patient={id}&status=pending,confirmed\n\n### SIN Postgres directo\nTodas las operaciones van por Django REST API.",
+        "content": "## WA-Conversation-State\n\nSub-workflow para gesti\u00f3n del estado de conversaci\u00f3n.\n\n### Acciones\n- get_session: Obtener sesi\u00f3n por tel\u00e9fono\n- save_session: Crear/actualizar sesi\u00f3n\n- clear_session: Limpiar datos de sesi\u00f3n\n- get_appointment_context: Obtener contexto de citas del paciente\n\n### Endpoints Django usados\n- GET /api/agent/sessions/?phone={phone}\n- POST /api/agent/sessions/\n- PATCH /api/agent/sessions/{id}/\n- GET /api/patients/?phone={phone}\n- GET /api/appointments/?patient={id}&status=pending,confirmed\n\n### SIN Postgres directo\nTodas las operaciones van por Django REST API.",
         "height": 450,
         "width": 500
       }
@@ -503,14 +503,14 @@
       "main": [
         [
           {
-            "node": "¿Sesion Existe para Update?",
+            "node": "\u00bfSesion Existe para Update?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "¿Sesion Existe para Update?": {
+    "\u00bfSesion Existe para Update?": {
       "main": [
         [
           {
@@ -632,7 +632,7 @@
         "updatedAt": "2026-03-27T04:32:05.440Z",
         "createdAt": "2026-03-27T04:24:04.464Z",
         "id": "Uw7iGhGodpLTW8Zv",
-        "name": "Jesús Dev <jesuslopezjaen03@gmail.com>",
+        "name": "Jes\u00fas Dev <jesuslopezjaen03@gmail.com>",
         "type": "personal",
         "icon": null,
         "description": null,
@@ -645,7 +645,7 @@
       "updatedAt": "2026-03-31T16:47:53.388Z",
       "createdAt": "2026-03-31T16:47:53.388Z",
       "id": "STkeOwvyOGyHXNaU",
-      "name": "Agente_Clínicas"
+      "name": "Agente_Cl\u00ednicas"
     }
   ],
   "activeVersion": null
