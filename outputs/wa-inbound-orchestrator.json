@@ -1,16 +1,17 @@
 {
-  "updatedAt": "2026-04-07T19:15:16.935Z",
+  "updatedAt": "2026-04-09T02:30:11.285Z",
   "createdAt": "2026-03-31T16:48:26.980Z",
   "id": "8RUGZ8AJzB6hRDCh",
   "name": "WA-Inbound-Orchestrator",
   "description": null,
-  "active": false,
+  "active": true,
   "isArchived": false,
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "whatsapp-inbound",
+        "responseMode": "responseNode",
         "options": {}
       },
       "id": "3d87172a-7f6e-47f2-ae49-436b6aa856ea",
@@ -91,7 +92,7 @@
       "credentials": {
         "httpHeaderAuth": {
           "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth account"
+          "name": "Header Auth Token Django"
         }
       },
       "onError": "continueRegularOutput"
@@ -117,13 +118,13 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1552,
-        400
+        1248,
+        352
       ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth account"
+          "name": "Header Auth Token Django"
         }
       }
     },
@@ -172,27 +173,27 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1792,
-        400
+        2064,
+        352
       ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth account"
+          "name": "Header Auth Token Django"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Obtener mensaje normalizado \u2014 soporta ruta chat y webhook\nlet normalized;\ntry {\n  normalized = $('Normalizar Mensaje Chat').first().json;\n} catch(e) {\n  normalized = $('Normalizar Mensaje').first().json;\n}\n\n// Sesi\u00f3n \u2014 respuesta paginada DRF: { count, results: [...] }\nlet sessionObj = {};\nlet session_id = null;\ntry {\n  const raw = $('Cargar Sesion').first().json;\n  const results = raw.results || (Array.isArray(raw) ? raw : (raw.id ? [raw] : []));\n  if (results.length > 0 && results[0].id) {\n    sessionObj = results[0];\n    session_id = results[0].id;\n  }\n} catch(e) {}\n\n// Reminder pendiente \u2014 respuesta paginada DRF\nlet reminder = {};\ntry {\n  const raw = $('Verificar Reminder Pendiente').first().json;\n  const results = raw.results || (Array.isArray(raw) ? raw : (raw.id ? [raw] : []));\n  if (results.length > 0 && results[0].id) {\n    reminder = results[0];\n  }\n} catch(e) {}\n\nreturn [{ json: {\n  chatInput: normalized.message,\n  phone: normalized.phone,\n  clinic_id: normalized.clinic_id || 'default',\n  phone_number_id: normalized.phone_number_id || 'test',\n  contact_name: normalized.contact_name || 'Usuario Chat',\n  session_id: session_id,\n  session_data: JSON.stringify(sessionObj.session_data || {}),\n  is_reminder_response: !!(reminder && reminder.id),\n  pending_appointment_id: reminder.id || '',\n  pending_appointment_service: reminder.service || '',\n  pending_appointment_datetime: reminder.scheduled_at || ''\n}}];"
+        "jsCode": "// Obtener mensaje normalizado \u2014 soporta ruta chat y webhook\nlet normalized;\ntry {\n  normalized = $('Normalizar Mensaje Chat').first().json;\n} catch(e) {\n  normalized = $('Normalizar Mensaje').first().json;\n}\n\n// Sesi\u00f3n \u2014 respuesta paginada DRF: { count, results: [...] }\nlet sessionObj = {};\nlet session_id = null;\ntry {\n  const raw = $('Cargar Sesion').first().json;\n  const results = raw.results || (Array.isArray(raw) ? raw : (raw.id ? [raw] : []));\n  if (results.length > 0 && results[0].id) {\n    sessionObj = results[0];\n    session_id = results[0].id;\n  }\n} catch(e) {}\n\n// Reminder pendiente \u2014 respuesta paginada DRF\nlet reminder = {};\ntry {\n  const raw = $('Verificar Reminder Pendiente').first().json;\n  const results = raw.results || (Array.isArray(raw) ? raw : (raw.id ? [raw] : []));\n  if (results.length > 0 && results[0].id) {\n    reminder = results[0];\n  }\n} catch(e) {}\n\n// Paciente \u2014 determinar si es nuevo y obtener su nombre real\nlet is_new_patient = false;\nlet patient_name = '';\ntry {\n  const raw = $('Buscar Paciente').first().json;\n  const results = raw.results || (Array.isArray(raw) ? raw : (raw.id ? [raw] : []));\n  if (results.length > 0 && results[0].id) {\n    is_new_patient = false;\n    patient_name = (results[0].first_name || '') + ' ' + (results[0].last_name || '');\n    patient_name = patient_name.trim();\n  } else {\n    is_new_patient = true;\n  }\n} catch(e) {\n  is_new_patient = true;\n}\n\n// Guardar phone para el error\n$execution.customData.set('phone', normalized.phone)\n\nreturn [{ json: {\n  chatInput: normalized.message,\n  phone: normalized.phone,\n  clinic_id: normalized.clinic_id || 'default',\n  phone_number_id: normalized.phone_number_id || 'test',\n  contact_name: normalized.contact_name || 'Usuario Chat',\n  session_id: session_id,\n  session_data: JSON.stringify(sessionObj.session_data || {}),\n  is_reminder_response: !!(reminder && reminder.id),\n  pending_appointment_id: reminder.id || '',\n  pending_appointment_service: reminder.service || '',\n  pending_appointment_datetime: reminder.scheduled_at || '',\n  is_new_patient: is_new_patient,\n  patient_name: patient_name\n}}];"
       },
       "id": "e15c3c9f-bd51-4e23-b8a1-ffae43cb043d",
       "name": "Preparar Contexto Agente",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2032,
-        400
+        2304,
+        352
       ]
     },
     {
@@ -200,7 +201,7 @@
         "promptType": "define",
         "text": "={{ $json.chatInput }}",
         "options": {
-          "systemMessage": "=Eres un asistente de IA para clinicas medicas que gestiona citas por WhatsApp. Eres amable, profesional y conciso. Siempre respondes en el idioma del usuario.\n\nUSUARIO: {{ $json.phone }} ({{ $json.contact_name }})\nCLINICA ID: {{ $json.clinic_id }}\nCONTEXTO DE SESION: {{ $json.session_data }}\nFECHA Y HORA ACTUAL: {{ $now.toISO() }}\n\n{{ $json.is_reminder_response ? 'ATENCION: El usuario responde a un RECORDATORIO. Cita pendiente: ID=' + $json.pending_appointment_id + ', Servicio=' + $json.pending_appointment_service + ', Fecha=' + $json.pending_appointment_datetime + '. Usa tool_confirm_reminder_response.' : '' }}\n\nINSTRUCCIONES:\n- Si el usuario responde a un recordatorio, usa tool_confirm_reminder_response\n- Si quiere agendar, consultar, cancelar o reprogramar citas, usa tool_check_and_book_appointment\n- Si pregunta sobre servicios, precios, horarios o info de la clinica, usa tool_get_clinic_information\n- Nunca inventes disponibilidad, precios ni horarios\n- Siempre confirma los datos antes de crear una cita\n- Se conciso (maximo 300 caracteres para WhatsApp)\n- Pasa siempre phone={{ $json.phone }} y clinic_id={{ $json.clinic_id }} a las herramientas",
+          "systemMessage": "=Eres un asistente de IA para clinicas medicas que gestiona citas por WhatsApp. Eres amable, profesional y conciso. Siempre respondes en el idioma del usuario.\n\nUSUARIO: {{ $json.phone }} ({{ $json.contact_name }})\nCLINICA ID: {{ $json.clinic_id }}\nCONTEXTO DE SESION: {{ $json.session_data }}\nFECHA Y HORA ACTUAL: {{ $now.toISO() }}\nES PACIENTE NUEVO: {{ $json.is_new_patient }}\nNOMBRE PACIENTE: {{ $json.patient_name }}\n\n{{ $json.is_reminder_response ? 'ATENCION: El usuario responde a un RECORDATORIO. Cita pendiente: ID=' + $json.pending_appointment_id + ', Servicio=' + $json.pending_appointment_service + ', Fecha=' + $json.pending_appointment_datetime + '. Usa tool_confirm_reminder_response.' : '' }}\n\nINSTRUCCIONES GENERALES:\n- Si el usuario responde a un recordatorio, usa tool_confirm_reminder_response\n- Si quiere agendar, consultar, cancelar o reprogramar citas, usa tool_check_and_book_appointment\n- Si pregunta sobre servicios, precios, horarios o info de la clinica, usa tool_get_clinic_information\n- Nunca inventes disponibilidad, precios ni horarios\n- Siempre confirma los datos antes de crear una cita\n- Se conciso (maximo 300 caracteres para WhatsApp)\n- Pasa siempre phone={{ $json.phone }} y clinic_id={{ $json.clinic_id }} a las herramientas\n\nINSTRUCCIONES PARA PACIENTE NUEVO (cuando ES PACIENTE NUEVO es true):\n- Tu UNICA tarea es recoger nombre, apellidos y correo electronico del usuario\n- El mensaje de bienvenida ya le ha pedido esos datos, asi que el usuario probablemente ya los ha enviado en este mensaje\n- Extrae first_name, last_name y email del mensaje del usuario\n- Si faltan datos, pidelos de forma amable indicando exactamente cuales faltan\n- Cuando tengas los tres datos, NO llames a la tool todavia. Primero muestra un resumen al usuario:\n  \"Perfecto, voy a registrarte con estos datos:\n   Nombre: {first_name} {last_name}\n   Email: {email}\n   \u00bfEs correcto? Responde SI para confirmar o NO para corregir.\"\n- Solo cuando el usuario confirme con SI, llama a tool_check_and_book_appointment con action=register_patient, first_name, last_name, email, phone y clinic_id\n- Si el usuario responde NO, pregunta que dato quiere corregir y vuelve a mostrar el resumen antes de registrar\n- Hasta que el paciente no este registrado no gestiones citas ni respondas preguntas de servicios",
           "maxIterations": 10
         }
       },
@@ -209,8 +210,8 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        2256,
-        400
+        2544,
+        352
       ]
     },
     {
@@ -230,8 +231,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        2192,
-        656
+        2480,
+        608
       ],
       "credentials": {
         "openAiApi": {
@@ -239,105 +240,6 @@
           "name": "OpenAI Credential"
         }
       }
-    },
-    {
-      "parameters": {
-        "name": "tool_check_and_book_appointment",
-        "description": "Gestiona citas: consultar disponibilidad (check_availability), crear (create), cancelar (cancel), reprogramar (reschedule) o listar proximas (list_upcoming). Pasa siempre phone y clinic_id.",
-        "workflowId": {
-          "__rl": true,
-          "mode": "id",
-          "value": "rtLakHrc6xR9B8oH"
-        },
-        "workflowInputs": {
-          "value": {
-            "action": "={{ $fromAI('action', 'Accion: check_availability, create, cancel, reschedule, list_upcoming', 'string') }}",
-            "phone": "={{ $fromAI('phone', 'Telefono del paciente', 'string') }}",
-            "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica', 'string') }}",
-            "service": "={{ $fromAI('service', 'Servicio solicitado (opcional)', 'string') }}",
-            "preferred_date": "={{ $fromAI('preferred_date', 'Fecha YYYY-MM-DD (opcional)', 'string') }}",
-            "preferred_time": "={{ $fromAI('preferred_time', 'Hora HH:MM (opcional)', 'string') }}",
-            "appointment_id": "={{ $fromAI('appointment_id', 'UUID cita para cancel/reschedule (opcional)', 'string') }}"
-          },
-          "schema": [
-            {
-              "id": "action",
-              "type": "string",
-              "display": true,
-              "required": true,
-              "displayName": "action",
-              "defaultMatch": false,
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "phone",
-              "type": "string",
-              "display": true,
-              "required": true,
-              "displayName": "phone",
-              "defaultMatch": false,
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "clinic_id",
-              "type": "string",
-              "display": true,
-              "required": true,
-              "displayName": "clinic_id",
-              "defaultMatch": false,
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "service",
-              "type": "string",
-              "display": true,
-              "required": false,
-              "displayName": "service",
-              "defaultMatch": false,
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "preferred_date",
-              "type": "string",
-              "display": true,
-              "required": false,
-              "displayName": "preferred_date",
-              "defaultMatch": false,
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "preferred_time",
-              "type": "string",
-              "display": true,
-              "required": false,
-              "displayName": "preferred_time",
-              "defaultMatch": false,
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "appointment_id",
-              "type": "string",
-              "display": true,
-              "required": false,
-              "displayName": "appointment_id",
-              "defaultMatch": false,
-              "canBeUsedToMatch": true
-            }
-          ],
-          "mappingMode": "defineBelow",
-          "matchingColumns": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        }
-      },
-      "id": "7cbf0fce-c090-4e23-838c-49aea935e527",
-      "name": "Tool - Gestionar Citas",
-      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
-      "typeVersion": 2,
-      "position": [
-        2032,
-        -80
-      ]
     },
     {
       "parameters": {
@@ -384,8 +286,8 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2,
       "position": [
-        2304,
-        -80
+        2592,
+        -128
       ]
     },
     {
@@ -453,8 +355,8 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2,
       "position": [
-        2560,
-        -80
+        2848,
+        -128
       ]
     },
     {
@@ -486,93 +388,9 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        2560,
-        400
+        1504,
+        352
       ]
-    },
-    {
-      "parameters": {
-        "method": "PATCH",
-        "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/{{ $('Preparar Contexto Agente').first().json.session_id }}/",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"phone\": \"{{ $('Preparar Contexto Agente').first().json.phone }}\",\n  \"session_data\": {{ JSON.stringify({ last_message: $('Preparar Contexto Agente').first().json.chatInput, last_response: ($json.output || $json.text || '').substring(0, 500) }) }},\n  \"last_interaction\": \"{{ $now.toISO() }}\"\n}",
-        "options": {}
-      },
-      "id": "aabb1122-ccdd-3344-eeff-556677889900",
-      "name": "Actualizar Sesion HTTP",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        2816,
-        208
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth account"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"phone\": \"{{ $('Preparar Contexto Agente').first().json.phone }}\",\n  \"session_data\": {{ JSON.stringify({ last_message: $('Preparar Contexto Agente').first().json.chatInput, last_response: ($json.output || $json.text || '').substring(0, 500) }) }},\n  \"last_interaction\": \"{{ $now.toISO() }}\",\n  \"clinic\": \"{{ $('Preparar Contexto Agente').first().json.clinic_id }}\"\n}",
-        "options": {}
-      },
-      "id": "11223344-5566-7788-99aa-bbccddeeff00",
-      "name": "Crear Sesion HTTP",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        2816,
-        608
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth account"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://graph.facebook.com/v18.0/{{ $('Preparar Contexto Agente').first().json.phone_number_id }}/messages",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $('Preparar Contexto Agente').first().json.phone }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"{{ $('Agente IA Clinica').first().json.output }}\" }\n}",
-        "options": {}
-      },
-      "id": "b59fe1ea-1eb1-4740-9299-141923960da0",
-      "name": "Enviar Respuesta WhatsApp",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        3072,
-        400
-      ],
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 2000,
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth account"
-        }
-      },
-      "onError": "continueRegularOutput"
     },
     {
       "parameters": {},
@@ -607,7 +425,7 @@
       "credentials": {
         "httpHeaderAuth": {
           "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth account"
+          "name": "Header Auth Token Django"
         }
       },
       "disabled": true
@@ -651,8 +469,8 @@
       "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
       "typeVersion": 1.5,
       "position": [
-        2496,
-        656
+        2784,
+        608
       ],
       "credentials": {
         "redis": {
@@ -663,17 +481,18 @@
     },
     {
       "parameters": {
-        "sessionIdType": "customKey",
-        "sessionKey": "={{ $('Preparar Contexto Agente').item.json.session_id }}"
+        "respondWith": "json",
+        "responseBody": "={{ $input.first().json }}",
+        "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
-      "typeVersion": 1.3,
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
       "position": [
-        2336,
-        656
+        3136,
+        352
       ],
-      "id": "acb60bb4-914e-401b-965e-19adf7db2f08",
-      "name": "Simple Memory"
+      "id": "d0fd8445-ee46-46c2-a27b-34382405059c",
+      "name": "Responder a Webhook Postman"
     },
     {
       "parameters": {
@@ -692,113 +511,225 @@
         "options": {}
       },
       "id": "buscar-paciente-django",
-      "name": "Buscar Paciente Django",
+      "name": "Buscar Paciente",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1008,
-        208
+        1024,
+        352
       ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth account"
+          "name": "Header Auth Token Django"
         }
       },
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 3
-          },
-          "conditions": [
-            {
-              "operator": {
-                "type": "number",
-                "operation": "gt"
-              },
-              "leftValue": "={{ ($json.results || $json).length || 0 }}",
-              "rightValue": 0,
-              "id": "f48c865b-eff6-4f26-a2d1-0be9ab973d23"
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
+        "jsCode": "return [{\n  json: {\n    to: $('Preparar Contexto Agente').first().json.phone,\n    type: \"text\",\n    message: $('Agente IA Clinica').first().json.output\n  }\n}];"
       },
-      "id": "paciente-existe-check",
-      "name": "\u00bfPaciente Existe?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        1264,
-        208
-      ]
+        2928,
+        352
+      ],
+      "id": "b78dcee3-2c70-4e11-a821-b23e639be049",
+      "name": "Formatear respuesta"
     },
     {
       "parameters": {
+        "description": "Gestiona citas y registro de pacientes. Acciones disponibles: check_availability, create, cancel, reschedule, list_upcoming, register_patient. Pasa siempre phone y clinic_id.",
         "workflowId": {
           "__rl": true,
           "mode": "id",
-          "value": "01xZkbBQIBBYCdK9"
+          "value": "rtLakHrc6xR9B8oH"
         },
         "workflowInputs": {
+          "mappingMode": "defineBelow",
           "value": {
-            "phone": "={{ $('Es Mensaje Texto?').first().json.phone }}",
-            "clinic_id": "={{ $('Es Mensaje Texto?').first().json.clinic_id }}",
-            "contact_name": "={{ $('Es Mensaje Texto?').first().json.contact_name }}",
-            "message_text": "={{ $('Es Mensaje Texto?').first().json.message }}"
+            "action": "={{ $fromAI('action', 'Accion: check_availability, create, cancel, reschedule, list_upcoming, register_patient', 'string') }}",
+            "phone": "={{ $fromAI('phone', 'Telefono del paciente', 'string') }}",
+            "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica', 'string') }}",
+            "service": "={{ $fromAI('service', 'Servicio solicitado (opcional)', 'string') }}",
+            "preferred_date": "={{ $fromAI('preferred_date', 'Fecha YYYY-MM-DD (opcional)', 'string') }}",
+            "preferred_time": "={{ $fromAI('preferred_time', 'Hora HH:MM (opcional)', 'string') }}",
+            "appointment_id": "={{ $fromAI('appointment_id', 'UUID cita para cancel/reschedule (opcional)', 'string') }}",
+            "first_name": "={{ $fromAI('first_name', 'Nombre del paciente para registro (opcional)', 'string') }}",
+            "last_name": "={{ $fromAI('last_name', 'Apellidos del paciente para registro (opcional)', 'string') }}",
+            "email": "={{ $fromAI('email', 'Email del paciente para registro (opcional)', 'string') }}"
           },
+          "matchingColumns": [],
           "schema": [
             {
-              "id": "phone",
-              "type": "string",
+              "id": "action",
+              "displayName": "action",
+              "required": false,
+              "defaultMatch": false,
               "display": true,
-              "required": true,
-              "displayName": "phone"
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
             },
             {
               "id": "clinic_id",
-              "type": "string",
+              "displayName": "clinic_id",
+              "required": false,
+              "defaultMatch": false,
               "display": true,
-              "required": true,
-              "displayName": "clinic_id"
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
             },
             {
-              "id": "contact_name",
-              "type": "string",
-              "display": true,
+              "id": "service",
+              "displayName": "service",
               "required": false,
-              "displayName": "contact_name"
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
             },
             {
-              "id": "message_text",
-              "type": "string",
-              "display": true,
+              "id": "preferred_date",
+              "displayName": "preferred_date",
               "required": false,
-              "displayName": "message_text"
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "preferred_time",
+              "displayName": "preferred_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "appointment_id",
+              "displayName": "appointment_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "first_name",
+              "displayName": "first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "last_name",
+              "displayName": "last_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
             }
           ],
-          "mappingMode": "defineBelow",
-          "matchingColumns": [],
           "attemptToConvertTypes": false,
           "convertFieldsToString": false
-        },
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        2400,
+        -128
+      ],
+      "id": "d02ca268-b843-440a-950c-66847cd36fbc",
+      "name": "Tool - Appointments Manager"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/{{ $('Cargar Sesion').first().json.results[0].id }}/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"{{ $('Normalizar Mensaje').first().json.phone }}\",\n  \"session_data\": {{ JSON.stringify({ last_message: $('Normalizar Mensaje').first().json.message, last_response: ($json.output || $json.text || '').substring(0, 500) }) }},\n  \"last_interaction\": \"{{ $now.toISO() }}\"\n}",
         "options": {}
       },
-      "id": "ejecutar-onboarding",
-      "name": "Onboarding Paciente Nuevo",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
+      "id": "aabb1122-ccdd-3344-eeff-556677889900",
+      "name": "Actualizar Sesion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
       "position": [
-        1328,
-        448
-      ]
+        1760,
+        192
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth Token Django"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"{{ $('Normalizar Mensaje').first().json.phone }}\",\n  \"session_data\": {{ JSON.stringify({ last_message: $('Normalizar Mensaje').first().json.message, last_response: ($json.output || $json.text || '').substring(0, 500) }) }},\n  \"last_interaction\": \"{{ $now.toISO() }}\",\n  \"clinic\": \"{{ $('Normalizar Mensaje').first().json.clinic_id }}\"\n}",
+        "options": {}
+      },
+      "id": "11223344-5566-7788-99aa-bbccddeeff00",
+      "name": "Crear Sesion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1776,
+        512
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rEUbsss2SSHpZ6m7",
+          "name": "Header Auth Token Django"
+        }
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -828,7 +759,7 @@
       "main": [
         [
           {
-            "node": "Buscar Paciente Django",
+            "node": "Buscar Paciente",
             "type": "main",
             "index": 0
           }
@@ -846,7 +777,7 @@
       "main": [
         [
           {
-            "node": "Verificar Reminder Pendiente",
+            "node": "\u00bfSesion Existe?",
             "type": "main",
             "index": 0
           }
@@ -879,7 +810,7 @@
       "main": [
         [
           {
-            "node": "\u00bfSesion Existe?",
+            "node": "Formatear respuesta",
             "type": "main",
             "index": 0
           }
@@ -890,36 +821,14 @@
       "main": [
         [
           {
-            "node": "Actualizar Sesion HTTP",
+            "node": "Actualizar Sesion",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Crear Sesion HTTP",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Actualizar Sesion HTTP": {
-      "main": [
-        [
-          {
-            "node": "Enviar Respuesta WhatsApp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Crear Sesion HTTP": {
-      "main": [
-        [
-          {
-            "node": "Enviar Respuesta WhatsApp",
+            "node": "Crear Sesion",
             "type": "main",
             "index": 0
           }
@@ -959,17 +868,6 @@
         ]
       ]
     },
-    "Tool - Gestionar Citas": {
-      "ai_tool": [
-        [
-          {
-            "node": "Agente IA Clinica",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Tool - Info Clinica": {
       "ai_tool": [
         [
@@ -992,12 +890,40 @@
         ]
       ]
     },
-    "Redis Chat Memory": {
-      "ai_memory": [
-        []
+    "Buscar Paciente": {
+      "main": [
+        [
+          {
+            "node": "Cargar Sesion",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Simple Memory": {
+    "Formatear respuesta": {
+      "main": [
+        [
+          {
+            "node": "Responder a Webhook Postman",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool - Appointments Manager": {
+      "ai_tool": [
+        [
+          {
+            "node": "Agente IA Clinica",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis Chat Memory": {
       "ai_memory": [
         [
           {
@@ -1008,43 +934,26 @@
         ]
       ]
     },
-    "Buscar Paciente Django": {
+    "Actualizar Sesion": {
       "main": [
         [
           {
-            "node": "\u00bfPaciente Existe?",
+            "node": "Verificar Reminder Pendiente",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "\u00bfPaciente Existe?": {
+    "Crear Sesion": {
       "main": [
         [
           {
-            "node": "Cargar Sesion",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Cargar Sesion",
+            "node": "Verificar Reminder Pendiente",
             "type": "main",
             "index": 0
           }
         ]
-      ]
-    },
-    "Onboarding Paciente Nuevo": {
-      "main": [
-        []
-      ]
-    },
-    "Enviar Respuesta WhatsApp": {
-      "main": [
-        []
       ]
     }
   },
@@ -1061,10 +970,10 @@
     "templateCredsSetupCompleted": true
   },
   "pinData": {},
-  "versionId": "e400ad6d-d257-453c-bb0f-68a8c3c00d6a",
-  "activeVersionId": null,
-  "versionCounter": 455,
-  "triggerCount": 0,
+  "versionId": "e899a71d-a328-47d6-98e7-1ea84351cd58",
+  "activeVersionId": "e899a71d-a328-47d6-98e7-1ea84351cd58",
+  "versionCounter": 821,
+  "triggerCount": 1,
   "shared": [
     {
       "updatedAt": "2026-03-31T16:48:26.983Z",
@@ -1092,5 +1001,983 @@
       "name": "Agente_Cl\u00ednicas"
     }
   ],
-  "activeVersion": null
+  "activeVersion": {
+    "updatedAt": "2026-04-09T02:30:11.290Z",
+    "createdAt": "2026-04-09T02:30:11.290Z",
+    "versionId": "e899a71d-a328-47d6-98e7-1ea84351cd58",
+    "workflowId": "8RUGZ8AJzB6hRDCh",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "whatsapp-inbound",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "3d87172a-7f6e-47f2-ae49-436b6aa856ea",
+        "name": "Webhook WhatsApp",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          208,
+          400
+        ],
+        "webhookId": "wa-inbound"
+      },
+      {
+        "parameters": {
+          "jsCode": "const body = $json.body || $json;\nconst entry = body.entry;\n\nif (!entry || !entry[0] || !entry[0].changes || !entry[0].changes[0] || !entry[0].changes[0].value.messages) {\n  return [{ json: { skip: true } }];\n}\n\nconst value = entry[0].changes[0].value;\nconst msg = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : {};\nconst phoneNumberId = value.metadata ? value.metadata.phone_number_id : '';\n\nreturn [{ json: {\n  phone: msg.from,\n  message: msg.text ? msg.text.body : '',\n  message_id: msg.id,\n  timestamp: msg.timestamp,\n  message_type: msg.type,\n  is_text: msg.type === 'text',\n  contact_name: contact.profile ? contact.profile.name : '',\n  phone_number_id: phoneNumberId,\n  clinic_id: 'clinic-test'\n}}];"
+        },
+        "id": "53967e2a-5633-4bea-ba6f-687ad20ac9bf",
+        "name": "Normalizar Mensaje",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          464,
+          400
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ $json.is_text }}",
+                "id": "0b845bb8-8b7f-47df-9975-13dab641ce77"
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "37275d9e-71f6-4f9c-ab7b-295f8a2936fd",
+        "name": "Es Mensaje Texto?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          704,
+          400
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://graph.facebook.com/v18.0/{{ $json.phone_number_id }}/messages",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.phone }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"Hola, de momento solo puedo procesar mensajes de texto. Por favor, escr\u00edbeme tu consulta.\" }\n}",
+          "options": {}
+        },
+        "id": "1b37368e-46b6-4c80-8f8e-45b776da94dc",
+        "name": "Responder Solo Texto",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          1008,
+          688
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "rEUbsss2SSHpZ6m7",
+            "name": "Header Auth Token Django"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "phone",
+                "value": "={{ $('Normalizar Mensaje').item.json.phone }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "de673299-46d4-46a9-9e25-56d23772af81",
+        "name": "Cargar Sesion",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          1248,
+          352
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "rEUbsss2SSHpZ6m7",
+            "name": "Header Auth Token Django"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "={{ $env.DJANGO_API_URL }}/api/appointments/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "patient_phone",
+                "value": "={{ $('Normalizar Mensaje').item.json.phone }}"
+              },
+              {
+                "name": "reminder_24h_sent",
+                "value": "true"
+              },
+              {
+                "name": "reminder_responded",
+                "value": "false"
+              },
+              {
+                "name": "scheduled_at_gte",
+                "value": "={{ $now.toISO() }}"
+              },
+              {
+                "name": "ordering",
+                "value": "scheduled_at"
+              },
+              {
+                "name": "status",
+                "value": "confirmed"
+              },
+              {
+                "name": "limit",
+                "value": "1"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "a09aedf3-e040-4c07-ae9d-355f4854b949",
+        "name": "Verificar Reminder Pendiente",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          2064,
+          352
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "rEUbsss2SSHpZ6m7",
+            "name": "Header Auth Token Django"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Obtener mensaje normalizado \u2014 soporta ruta chat y webhook\nlet normalized;\ntry {\n  normalized = $('Normalizar Mensaje Chat').first().json;\n} catch(e) {\n  normalized = $('Normalizar Mensaje').first().json;\n}\n\n// Sesi\u00f3n \u2014 respuesta paginada DRF: { count, results: [...] }\nlet sessionObj = {};\nlet session_id = null;\ntry {\n  const raw = $('Cargar Sesion').first().json;\n  const results = raw.results || (Array.isArray(raw) ? raw : (raw.id ? [raw] : []));\n  if (results.length > 0 && results[0].id) {\n    sessionObj = results[0];\n    session_id = results[0].id;\n  }\n} catch(e) {}\n\n// Reminder pendiente \u2014 respuesta paginada DRF\nlet reminder = {};\ntry {\n  const raw = $('Verificar Reminder Pendiente').first().json;\n  const results = raw.results || (Array.isArray(raw) ? raw : (raw.id ? [raw] : []));\n  if (results.length > 0 && results[0].id) {\n    reminder = results[0];\n  }\n} catch(e) {}\n\n// Paciente \u2014 determinar si es nuevo y obtener su nombre real\nlet is_new_patient = false;\nlet patient_name = '';\ntry {\n  const raw = $('Buscar Paciente').first().json;\n  const results = raw.results || (Array.isArray(raw) ? raw : (raw.id ? [raw] : []));\n  if (results.length > 0 && results[0].id) {\n    is_new_patient = false;\n    patient_name = (results[0].first_name || '') + ' ' + (results[0].last_name || '');\n    patient_name = patient_name.trim();\n  } else {\n    is_new_patient = true;\n  }\n} catch(e) {\n  is_new_patient = true;\n}\n\n// Guardar phone para el error\n$execution.customData.set('phone', normalized.phone)\n\nreturn [{ json: {\n  chatInput: normalized.message,\n  phone: normalized.phone,\n  clinic_id: normalized.clinic_id || 'default',\n  phone_number_id: normalized.phone_number_id || 'test',\n  contact_name: normalized.contact_name || 'Usuario Chat',\n  session_id: session_id,\n  session_data: JSON.stringify(sessionObj.session_data || {}),\n  is_reminder_response: !!(reminder && reminder.id),\n  pending_appointment_id: reminder.id || '',\n  pending_appointment_service: reminder.service || '',\n  pending_appointment_datetime: reminder.scheduled_at || '',\n  is_new_patient: is_new_patient,\n  patient_name: patient_name\n}}];"
+        },
+        "id": "e15c3c9f-bd51-4e23-b8a1-ffae43cb043d",
+        "name": "Preparar Contexto Agente",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2304,
+          352
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $json.chatInput }}",
+          "options": {
+            "systemMessage": "=Eres un asistente de IA para clinicas medicas que gestiona citas por WhatsApp. Eres amable, profesional y conciso. Siempre respondes en el idioma del usuario.\n\nUSUARIO: {{ $json.phone }} ({{ $json.contact_name }})\nCLINICA ID: {{ $json.clinic_id }}\nCONTEXTO DE SESION: {{ $json.session_data }}\nFECHA Y HORA ACTUAL: {{ $now.toISO() }}\nES PACIENTE NUEVO: {{ $json.is_new_patient }}\nNOMBRE PACIENTE: {{ $json.patient_name }}\n\n{{ $json.is_reminder_response ? 'ATENCION: El usuario responde a un RECORDATORIO. Cita pendiente: ID=' + $json.pending_appointment_id + ', Servicio=' + $json.pending_appointment_service + ', Fecha=' + $json.pending_appointment_datetime + '. Usa tool_confirm_reminder_response.' : '' }}\n\nINSTRUCCIONES GENERALES:\n- Si el usuario responde a un recordatorio, usa tool_confirm_reminder_response\n- Si quiere agendar, consultar, cancelar o reprogramar citas, usa tool_check_and_book_appointment\n- Si pregunta sobre servicios, precios, horarios o info de la clinica, usa tool_get_clinic_information\n- Nunca inventes disponibilidad, precios ni horarios\n- Siempre confirma los datos antes de crear una cita\n- Se conciso (maximo 300 caracteres para WhatsApp)\n- Pasa siempre phone={{ $json.phone }} y clinic_id={{ $json.clinic_id }} a las herramientas\n\nINSTRUCCIONES PARA PACIENTE NUEVO (cuando ES PACIENTE NUEVO es true):\n- Tu UNICA tarea es recoger nombre, apellidos y correo electronico del usuario\n- El mensaje de bienvenida ya le ha pedido esos datos, asi que el usuario probablemente ya los ha enviado en este mensaje\n- Extrae first_name, last_name y email del mensaje del usuario\n- Si faltan datos, pidelos de forma amable indicando exactamente cuales faltan\n- Cuando tengas los tres datos, NO llames a la tool todavia. Primero muestra un resumen al usuario:\n  \"Perfecto, voy a registrarte con estos datos:\n   Nombre: {first_name} {last_name}\n   Email: {email}\n   \u00bfEs correcto? Responde SI para confirmar o NO para corregir.\"\n- Solo cuando el usuario confirme con SI, llama a tool_check_and_book_appointment con action=register_patient, first_name, last_name, email, phone y clinic_id\n- Si el usuario responde NO, pregunta que dato quiere corregir y vuelve a mostrar el resumen antes de registrar\n- Hasta que el paciente no este registrado no gestiones citas ni respondas preguntas de servicios",
+            "maxIterations": 10
+          }
+        },
+        "id": "a601e5b9-a751-41c0-96f4-fa71df102e2b",
+        "name": "Agente IA Clinica",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          2544,
+          352
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "id",
+            "value": "gpt-4o"
+          },
+          "builtInTools": {},
+          "options": {
+            "temperature": 0.3
+          }
+        },
+        "id": "ae0d6bb7-e396-4da1-bbb7-c2221eec19d0",
+        "name": "OpenAI - Agente",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          2480,
+          608
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "JudIjAegKjStIyN5",
+            "name": "OpenAI Credential"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "name": "tool_get_clinic_information",
+          "description": "Busca informacion de la clinica: servicios, precios, horarios, FAQ, ubicacion, politicas. Usar cuando el usuario pregunta sobre la clinica.",
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "43XUwyqUHZn1KBT2"
+          },
+          "workflowInputs": {
+            "value": {
+              "question": "={{ $fromAI('question', 'Pregunta del usuario sobre la clinica', 'string') }}",
+              "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica', 'string') }}"
+            },
+            "schema": [
+              {
+                "id": "question",
+                "type": "string",
+                "display": true,
+                "required": true,
+                "displayName": "question",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "clinic_id",
+                "type": "string",
+                "display": true,
+                "required": true,
+                "displayName": "clinic_id",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              }
+            ],
+            "mappingMode": "defineBelow",
+            "matchingColumns": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        },
+        "id": "1f85ecce-0790-4e9e-b634-81aeb2afc71b",
+        "name": "Tool - Info Clinica",
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2,
+        "position": [
+          2592,
+          -128
+        ]
+      },
+      {
+        "parameters": {
+          "name": "tool_confirm_reminder_response",
+          "description": "Confirma, cancela o reprograma una cita desde un recordatorio. SOLO usar cuando el contexto indica is_reminder_response=true.",
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "rtLakHrc6xR9B8oH"
+          },
+          "workflowInputs": {
+            "value": {
+              "action": "confirm_from_reminder",
+              "phone": "={{ $fromAI('phone', 'Telefono del paciente', 'string') }}",
+              "appointment_id": "={{ $fromAI('appointment_id', 'UUID de la cita del recordatorio', 'string') }}",
+              "response": "={{ $fromAI('response', 'Respuesta: confirm, cancel o reschedule', 'string') }}"
+            },
+            "schema": [
+              {
+                "id": "action",
+                "type": "string",
+                "display": true,
+                "required": true,
+                "displayName": "action",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "phone",
+                "type": "string",
+                "display": true,
+                "required": true,
+                "displayName": "phone",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "appointment_id",
+                "type": "string",
+                "display": true,
+                "required": true,
+                "displayName": "appointment_id",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "response",
+                "type": "string",
+                "display": true,
+                "required": true,
+                "displayName": "response",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              }
+            ],
+            "mappingMode": "defineBelow",
+            "matchingColumns": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        },
+        "id": "aa370854-7531-4c3c-a444-8e7795a6864c",
+        "name": "Tool - Confirmar Reminder",
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2,
+        "position": [
+          2848,
+          -128
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "operator": {
+                  "type": "string",
+                  "operation": "exists",
+                  "singleValue": true
+                },
+                "leftValue": "={{ $('Cargar Sesion').item.json.results[0].id }}",
+                "id": "c4c5351f-b8aa-4006-8aa5-9388b9a893c6"
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "cc001122-3344-5566-7788-99aabbccddee",
+        "name": "\u00bfSesion Existe?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          1504,
+          352
+        ]
+      },
+      {
+        "parameters": {},
+        "id": "701ea6db-5677-4686-87f8-b48294138fae",
+        "name": "Error Trigger Global",
+        "type": "n8n-nodes-base.errorTrigger",
+        "typeVersion": 1,
+        "position": [
+          208,
+          1008
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.DJANGO_API_URL }}/api/agent/errors/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"workflow\": \"{{ $workflow.id }}\",\n  \"workflow_name\": \"{{ $workflow.name }}\",\n  \"node_name\": \"{{ $json.node.name }}\",\n  \"error_message\": \"{{ $json.error.message }}\",\n  \"phone\": \"{{ $json.execution.customData.phone || '' }}\",\n  \"payload\": {{ JSON.stringify($json) }}\n}",
+          "options": {}
+        },
+        "id": "c283d751-01ee-4999-8185-f5376ba5ba9f",
+        "name": "Post Agent Error",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          480,
+          1008
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "rEUbsss2SSHpZ6m7",
+            "name": "Header Auth Token Django"
+          }
+        },
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "jsCode": "return [{ json: {\n  success: false,\n  message: 'Disculpa, tuve un problema tecnico. Por favor intenta de nuevo en unos minutos.',\n  error_logged: true\n}}];"
+        },
+        "id": "beda56c9-c9f1-463f-b73b-216332b3e26d",
+        "name": "Error - Responder Usuario",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          752,
+          1008
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## WA-Inbound-Orchestrator\n\n### Funci\u00f3n\nPunto de entrada de todos los mensajes WhatsApp. Detecta pacientes nuevos, \ngestiona sesiones y enruta al agente IA.\n\n### Endpoints Django usados\n- GET /api/patients/?phone={phone} \u2014 Buscar paciente\n- GET /api/agent/sessions/?phone={phone} \u2014 Cargar sesi\u00f3n\n- POST /api/agent/sessions/ \u2014 Crear sesi\u00f3n  \n- PATCH /api/agent/sessions/{id}/ \u2014 Actualizar sesi\u00f3n\n- GET /api/appointments/?patient_phone={phone}&... \u2014 Verificar reminder pendiente\n\n### Sub-workflows invocados\n- WA-Patient-Onboarding (01xZkbBQIBBYCdK9) \u2014 paciente nuevo\n- WA-Appointments-Manager (rtLakHrc6xR9B8oH) \u2014 gesti\u00f3n citas (tool)\n- WA-Clinic-Info-RAG (43XUwyqUHZn1KBT2) \u2014 info cl\u00ednica (tool)\n\n### Autenticaci\u00f3n\n- Django: Header Auth credential (Api-Key)\n- WhatsApp: Header Auth credential (Bearer token Meta)\n- URLs via $env.DJANGO_API_URL\n\n### Estructura petici\u00f3n POST para probar webhook:\nhttps://n8n.alt4ir.online/webhook-test/whatsapp-inbound\n\nHeaders: Authorization Token {Auth Token}\n\n{\n    \"object\": \"whatsapp_business_account\",\n    \"entry\": [{\n      \"changes\": [{\n        \"value\": {\n          \"messages\": [{\n            \"from\": \"34644520621\",\n            \"id\": \"test-msg-001\",\n            \"timestamp\": \"1234567890\",\n            \"text\": { \"body\": \"Hola, quiero pedir cita\" },\n            \"type\": \"text\"\n          }],\n          \"contacts\": [{\n            \"profile\": { \"name\": \"Usuario Test\" },\n            \"wa_id\": \"34644520621\"\n          }],\n          \"metadata\": {\n            \"phone_number_id\": \"test-phone-id\"\n          }\n        }\n      }]\n    }]\n  }",
+          "height": 680,
+          "width": 580
+        },
+        "id": "6ebc3985-d714-490c-b50e-6b25cc32d42d",
+        "name": "Sticky Note - Schema SQL y Setup",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          160,
+          -480
+        ]
+      },
+      {
+        "parameters": {
+          "sessionIdType": "customKey",
+          "sessionKey": "={{ $('Preparar Contexto Agente').first().json.session_id }}",
+          "sessionTTL": 86400
+        },
+        "id": "d290ab2d-d95e-4a57-8e01-23075c30edf9",
+        "name": "Redis Chat Memory",
+        "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+        "typeVersion": 1.5,
+        "position": [
+          2784,
+          608
+        ],
+        "credentials": {
+          "redis": {
+            "id": "L6oqEKjLDCoXBTb8",
+            "name": "Redis account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ $input.first().json }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          3136,
+          352
+        ],
+        "id": "d0fd8445-ee46-46c2-a27b-34382405059c",
+        "name": "Responder a Webhook Postman"
+      },
+      {
+        "parameters": {
+          "url": "={{ $env.DJANGO_API_URL }}/api/patients/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "phone",
+                "value": "={{ $json.phone }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "buscar-paciente-django",
+        "name": "Buscar Paciente",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          1024,
+          352
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "rEUbsss2SSHpZ6m7",
+            "name": "Header Auth Token Django"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "return [{\n  json: {\n    to: $('Preparar Contexto Agente').first().json.phone,\n    type: \"text\",\n    message: $('Agente IA Clinica').first().json.output\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2928,
+          352
+        ],
+        "id": "b78dcee3-2c70-4e11-a821-b23e639be049",
+        "name": "Formatear respuesta"
+      },
+      {
+        "parameters": {
+          "description": "Gestiona citas y registro de pacientes. Acciones disponibles: check_availability, create, cancel, reschedule, list_upcoming, register_patient. Pasa siempre phone y clinic_id.",
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "rtLakHrc6xR9B8oH"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "action": "={{ $fromAI('action', 'Accion: check_availability, create, cancel, reschedule, list_upcoming, register_patient', 'string') }}",
+              "phone": "={{ $fromAI('phone', 'Telefono del paciente', 'string') }}",
+              "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica', 'string') }}",
+              "service": "={{ $fromAI('service', 'Servicio solicitado (opcional)', 'string') }}",
+              "preferred_date": "={{ $fromAI('preferred_date', 'Fecha YYYY-MM-DD (opcional)', 'string') }}",
+              "preferred_time": "={{ $fromAI('preferred_time', 'Hora HH:MM (opcional)', 'string') }}",
+              "appointment_id": "={{ $fromAI('appointment_id', 'UUID cita para cancel/reschedule (opcional)', 'string') }}",
+              "first_name": "={{ $fromAI('first_name', 'Nombre del paciente para registro (opcional)', 'string') }}",
+              "last_name": "={{ $fromAI('last_name', 'Apellidos del paciente para registro (opcional)', 'string') }}",
+              "email": "={{ $fromAI('email', 'Email del paciente para registro (opcional)', 'string') }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "action",
+                "displayName": "action",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "phone",
+                "displayName": "phone",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "clinic_id",
+                "displayName": "clinic_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "service",
+                "displayName": "service",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "preferred_date",
+                "displayName": "preferred_date",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "preferred_time",
+                "displayName": "preferred_time",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "appointment_id",
+                "displayName": "appointment_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "first_name",
+                "displayName": "first_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "last_name",
+                "displayName": "last_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "email",
+                "displayName": "email",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2.2,
+        "position": [
+          2400,
+          -128
+        ],
+        "id": "d02ca268-b843-440a-950c-66847cd36fbc",
+        "name": "Tool - Appointments Manager"
+      },
+      {
+        "parameters": {
+          "method": "PATCH",
+          "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/{{ $('Cargar Sesion').first().json.results[0].id }}/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"phone\": \"{{ $('Normalizar Mensaje').first().json.phone }}\",\n  \"session_data\": {{ JSON.stringify({ last_message: $('Normalizar Mensaje').first().json.message, last_response: ($json.output || $json.text || '').substring(0, 500) }) }},\n  \"last_interaction\": \"{{ $now.toISO() }}\"\n}",
+          "options": {}
+        },
+        "id": "aabb1122-ccdd-3344-eeff-556677889900",
+        "name": "Actualizar Sesion",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          1760,
+          192
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "rEUbsss2SSHpZ6m7",
+            "name": "Header Auth Token Django"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"phone\": \"{{ $('Normalizar Mensaje').first().json.phone }}\",\n  \"session_data\": {{ JSON.stringify({ last_message: $('Normalizar Mensaje').first().json.message, last_response: ($json.output || $json.text || '').substring(0, 500) }) }},\n  \"last_interaction\": \"{{ $now.toISO() }}\",\n  \"clinic\": \"{{ $('Normalizar Mensaje').first().json.clinic_id }}\"\n}",
+          "options": {}
+        },
+        "id": "11223344-5566-7788-99aa-bbccddeeff00",
+        "name": "Crear Sesion",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          1776,
+          512
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "rEUbsss2SSHpZ6m7",
+            "name": "Header Auth Token Django"
+          }
+        },
+        "onError": "continueRegularOutput"
+      }
+    ],
+    "connections": {
+      "Webhook WhatsApp": {
+        "main": [
+          [
+            {
+              "node": "Normalizar Mensaje",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalizar Mensaje": {
+        "main": [
+          [
+            {
+              "node": "Es Mensaje Texto?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Es Mensaje Texto?": {
+        "main": [
+          [
+            {
+              "node": "Buscar Paciente",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Responder Solo Texto",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Cargar Sesion": {
+        "main": [
+          [
+            {
+              "node": "\u00bfSesion Existe?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Verificar Reminder Pendiente": {
+        "main": [
+          [
+            {
+              "node": "Preparar Contexto Agente",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Preparar Contexto Agente": {
+        "main": [
+          [
+            {
+              "node": "Agente IA Clinica",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Agente IA Clinica": {
+        "main": [
+          [
+            {
+              "node": "Formatear respuesta",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "\u00bfSesion Existe?": {
+        "main": [
+          [
+            {
+              "node": "Actualizar Sesion",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Crear Sesion",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Error Trigger Global": {
+        "main": [
+          [
+            {
+              "node": "Post Agent Error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Post Agent Error": {
+        "main": [
+          [
+            {
+              "node": "Error - Responder Usuario",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI - Agente": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Agente IA Clinica",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tool - Info Clinica": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agente IA Clinica",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tool - Confirmar Reminder": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agente IA Clinica",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar Paciente": {
+        "main": [
+          [
+            {
+              "node": "Cargar Sesion",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Formatear respuesta": {
+        "main": [
+          [
+            {
+              "node": "Responder a Webhook Postman",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Tool - Appointments Manager": {
+        "ai_tool": [
+          [
+            {
+              "node": "Agente IA Clinica",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Redis Chat Memory": {
+        "ai_memory": [
+          [
+            {
+              "node": "Agente IA Clinica",
+              "type": "ai_memory",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Actualizar Sesion": {
+        "main": [
+          [
+            {
+              "node": "Verificar Reminder Pendiente",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Crear Sesion": {
+        "main": [
+          [
+            {
+              "node": "Verificar Reminder Pendiente",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Jes\u00fas Dev",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-04-09T02:30:11.811Z",
+        "id": 113,
+        "workflowId": "8RUGZ8AJzB6hRDCh",
+        "versionId": "e899a71d-a328-47d6-98e7-1ea84351cd58",
+        "event": "activated",
+        "userId": "fbbfb9bb-6047-4e9a-87a3-f8fffa66500b"
+      },
+      {
+        "createdAt": "2026-04-09T02:30:11.598Z",
+        "id": 112,
+        "workflowId": "8RUGZ8AJzB6hRDCh",
+        "versionId": "e899a71d-a328-47d6-98e7-1ea84351cd58",
+        "event": "deactivated",
+        "userId": "fbbfb9bb-6047-4e9a-87a3-f8fffa66500b"
+      }
+    ]
+  }
 }

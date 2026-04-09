@@ -141,6 +141,7 @@ n8n-clinic-agent/
 6. **Desplegar** con `n8n_create_workflow` a la instancia n8n
 7. **Probar** con `n8n_test_workflow` y verificar la ejecución
 8. **Guardar** crear una copia del JSON del workflow output final en la carpeta outputs/
+9. **Actualizar outputs/** al modificar un workflow existente en la instancia n8n: siempre exportar el JSON actualizado con `n8n_get_workflow` y sobreescribir el archivo correspondiente en `outputs/`
 
 ### Patrones de Workflow para Clínicas (5 Arquitecturas Base)
 
@@ -170,6 +171,7 @@ n8n-clinic-agent/
 - Nomenclatura de nodos: descriptiva y en español (ej. "Obtener Cita", "Enviar Confirmación SMS")
 - Validar el workflow con `validate_workflow` antes de cada despliegue
 - Los datos de webhook están en `$json.body`, no en `$json` directamente
+- **Sincronizar outputs/** siempre que se cree o modifique un workflow real en la instancia n8n: exportar el JSON con `n8n_get_workflow` y guardar/sobreescribir el archivo en `outputs/` con el mismo nombre de workflow
 
 ### Gotchas Frecuentes de n8n
 
