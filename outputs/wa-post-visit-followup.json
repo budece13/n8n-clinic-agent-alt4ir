@@ -1,10 +1,10 @@
 {
-  "updatedAt": "2026-04-07T16:57:40.539Z",
-  "createdAt": "2026-04-06T10:17:33.782Z",
-  "id": "Bgi3HzU0AxJNS5VF",
+  "updatedAt": "2026-04-09T19:21:50.562Z",
+  "createdAt": "2026-04-09T19:02:53.867Z",
+  "id": "Zo8siOGMbgdFL3ix",
   "name": "WA-Post-Visit-Followup",
   "description": null,
-  "active": false,
+  "active": true,
   "isArchived": false,
   "nodes": [
     {
@@ -74,8 +74,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth account"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       },
       "continueOnFail": true
@@ -104,7 +104,7 @@
         "options": {}
       },
       "id": "hay-citas",
-      "name": "\u00bfHay Citas Completadas?",
+      "name": "¿Hay Citas Completadas?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
@@ -127,7 +127,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const cita = $input.first().json;\nconst patientName = cita.patient_name || cita.patient_first_name || '';\n\nreturn [{ json: {\n  phone: cita.patient_phone,\n  phone_number_id: cita.phone_number_id || '',\n  message: `Hola ${patientName}. Esperamos que tu visita de ayer haya ido bien. \u00bfC\u00f3mo te encuentras? Si tienes alguna duda o necesitas algo, no dudes en escribirnos. \u00a1Estamos aqu\u00ed para ayudarte!`\n}}];"
+        "jsCode": "const cita = $input.first().json;\nconst patientName = cita.patient_name || cita.patient_first_name || '';\n\nreturn [{ json: {\n  phone: cita.patient_phone,\n  phone_number_id: cita.phone_number_id || '',\n  message: `Hola ${patientName}. Esperamos que tu visita de ayer haya ido bien. ¿Cómo te encuentras? Si tienes alguna duda o necesitas algo, no dudes en escribirnos. ¡Estamos aquí para ayudarte!`\n}}];"
       },
       "id": "formatear-msg",
       "name": "Formatear Mensaje Followup",
@@ -159,8 +159,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth account"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       },
       "continueOnFail": true
@@ -250,7 +250,7 @@
     },
     {
       "parameters": {
-        "content": "## WA-Post-Visit-Followup\n\nCron diario a las 10:00 (Europe/Madrid).\nBusca citas completadas del d\u00eda anterior y env\u00eda mensaje de seguimiento por WhatsApp.\n\n### Endpoints Django usados\n- GET /api/appointments/?status=completed&scheduled_at_after=...&scheduled_at_before=...\n\n### Endpoints pendientes\n- POST /api/agent/errors/ (log errores, ReadOnly en Django)\n\n### Reglas\n- Rate limit 1s entre mensajes\n- Mensajes en espa\u00f1ol, sin IDs internos\n- Si la API falla, no se env\u00eda mensaje (continueOnFail)",
+        "content": "## WA-Post-Visit-Followup\n\nCron diario a las 10:00 (Europe/Madrid).\nBusca citas completadas del día anterior y envía mensaje de seguimiento por WhatsApp.\n\n### Endpoints Django usados\n- GET /api/appointments/?status=completed&scheduled_at_after=...&scheduled_at_before=...\n\n### Endpoints pendientes\n- POST /api/agent/errors/ (log errores, ReadOnly en Django)\n\n### Reglas\n- Rate limit 1s entre mensajes\n- Mensajes en español, sin IDs internos\n- Si la API falla, no se envía mensaje (continueOnFail)",
         "height": 380,
         "width": 500
       },
@@ -265,7 +265,7 @@
     },
     {
       "parameters": {
-        "content": "\u26a0\ufe0f ENDPOINT PENDIENTE: Requiere implementar POST /api/agent/errors/ (escritura) en clinic-app (Django). WorkflowErrorViewSet es ReadOnly.\n\nAlternativa temporal: log con Set node.",
+        "content": "⚠️ ENDPOINT PENDIENTE: Requiere implementar POST /api/agent/errors/ (escritura) en clinic-app (Django). WorkflowErrorViewSet es ReadOnly.\n\nAlternativa temporal: log con Set node.",
         "height": 110,
         "width": 480
       },
@@ -306,14 +306,14 @@
       "main": [
         [
           {
-            "node": "\u00bfHay Citas Completadas?",
+            "node": "¿Hay Citas Completadas?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "\u00bfHay Citas Completadas?": {
+    "¿Hay Citas Completadas?": {
       "main": [
         [
           {
@@ -395,32 +395,445 @@
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false
   },
-  "staticData": null,
+  "staticData": {
+    "node:Trigger Diario 10h": {
+      "recurrenceRules": []
+    }
+  },
   "meta": null,
-  "pinData": {},
-  "versionId": "3584147b-6b12-42bd-9f3f-4f44e430b0bc",
-  "activeVersionId": null,
-  "versionCounter": 2,
-  "triggerCount": 0,
+  "pinData": null,
+  "versionId": "2956cfd4-a879-4d8c-b9f7-53181d812407",
+  "activeVersionId": "2956cfd4-a879-4d8c-b9f7-53181d812407",
+  "versionCounter": 19,
+  "triggerCount": 1,
   "shared": [
     {
-      "updatedAt": "2026-04-06T10:17:33.798Z",
-      "createdAt": "2026-04-06T10:17:33.798Z",
+      "updatedAt": "2026-04-09T19:02:53.867Z",
+      "createdAt": "2026-04-09T19:02:53.867Z",
       "role": "workflow:owner",
-      "workflowId": "Bgi3HzU0AxJNS5VF",
-      "projectId": "Uw7iGhGodpLTW8Zv",
+      "workflowId": "Zo8siOGMbgdFL3ix",
+      "projectId": "2RRplptgpwnH1F4I",
       "project": {
-        "updatedAt": "2026-03-27T04:32:05.440Z",
-        "createdAt": "2026-03-27T04:24:04.464Z",
-        "id": "Uw7iGhGodpLTW8Zv",
-        "name": "Jes\u00fas Dev <jesuslopezjaen03@gmail.com>",
+        "updatedAt": "2026-04-09T18:48:10.704Z",
+        "createdAt": "2026-04-09T18:02:45.199Z",
+        "id": "2RRplptgpwnH1F4I",
+        "name": "devs cool <devsnncool@gmail.com>",
         "type": "personal",
         "icon": null,
         "description": null,
-        "creatorId": "fbbfb9bb-6047-4e9a-87a3-f8fffa66500b"
+        "creatorId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       }
     }
   ],
   "tags": [],
-  "activeVersion": null
+  "activeVersion": {
+    "updatedAt": "2026-04-09T19:21:50.566Z",
+    "createdAt": "2026-04-09T19:21:50.566Z",
+    "versionId": "2956cfd4-a879-4d8c-b9f7-53181d812407",
+    "workflowId": "Zo8siOGMbgdFL3ix",
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 10 * * *"
+              }
+            ]
+          }
+        },
+        "id": "trigger-diario",
+        "name": "Trigger Diario 10h",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const now = new Date();\nconst ayer = new Date(now);\nayer.setDate(ayer.getDate() - 1);\nconst ayerStr = ayer.toISOString().split('T')[0];\nconst ayerFinStr = ayerStr + 'T23:59:59';\nconst ayerInicioStr = ayerStr + 'T00:00:00';\n\nreturn [{ json: {\n  fecha_ayer_inicio: ayerInicioStr,\n  fecha_ayer_fin: ayerFinStr,\n  fecha_ayer: ayerStr\n}}];"
+        },
+        "id": "calcular-ayer",
+        "name": "Calcular Fecha Ayer",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          304,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "url": "={{ $env.DJANGO_API_URL }}/api/appointments/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "status",
+                "value": "completed"
+              },
+              {
+                "name": "scheduled_at_after",
+                "value": "={{ $json.fecha_ayer_inicio }}"
+              },
+              {
+                "name": "scheduled_at_before",
+                "value": "={{ $json.fecha_ayer_fin }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "buscar-completadas",
+        "name": "Buscar Citas Completadas Ayer",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          608,
+          304
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "operator": {
+                  "type": "number",
+                  "operation": "gt"
+                },
+                "leftValue": "={{ ($json.results || []).length }}",
+                "rightValue": 0
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "hay-citas",
+        "name": "¿Hay Citas Completadas?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          912,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "id": "split",
+        "name": "Procesar Uno a Uno",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          1200,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const cita = $input.first().json;\nconst patientName = cita.patient_name || cita.patient_first_name || '';\n\nreturn [{ json: {\n  phone: cita.patient_phone,\n  phone_number_id: cita.phone_number_id || '',\n  message: `Hola ${patientName}. Esperamos que tu visita de ayer haya ido bien. ¿Cómo te encuentras? Si tienes alguna duda o necesitas algo, no dudes en escribirnos. ¡Estamos aquí para ayudarte!`\n}}];"
+        },
+        "id": "formatear-msg",
+        "name": "Formatear Mensaje Followup",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1504,
+          208
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://graph.facebook.com/v18.0/{{ $json.phone_number_id }}/messages",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.phone }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"{{ $json.message }}\" }\n}",
+          "options": {}
+        },
+        "id": "enviar-wa",
+        "name": "Enviar Followup WhatsApp",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          1808,
+          208
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "amount": 1
+        },
+        "id": "rate-limit",
+        "name": "Rate Limit 1s",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          2112,
+          208
+        ],
+        "webhookId": "de8f0edc-b951-45e7-b6f8-678c8cd8db05"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "a1",
+                "name": "status",
+                "value": "no_completed_appointments_yesterday",
+                "type": "string"
+              },
+              {
+                "id": "a2",
+                "name": "timestamp",
+                "value": "={{ $now.toISO() }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "log-vacio",
+        "name": "Log Sin Citas",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1200,
+          512
+        ]
+      },
+      {
+        "parameters": {},
+        "id": "error-trigger",
+        "name": "Error Trigger Global",
+        "type": "n8n-nodes-base.errorTrigger",
+        "typeVersion": 1,
+        "position": [
+          0,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "a1",
+                "name": "workflow",
+                "value": "WA-Post-Visit-Followup",
+                "type": "string"
+              },
+              {
+                "id": "a2",
+                "name": "error",
+                "value": "={{ $json.execution?.error?.message || '' }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "error-log",
+        "name": "Error - Log Temporal",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          304,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## WA-Post-Visit-Followup\n\nCron diario a las 10:00 (Europe/Madrid).\nBusca citas completadas del día anterior y envía mensaje de seguimiento por WhatsApp.\n\n### Endpoints Django usados\n- GET /api/appointments/?status=completed&scheduled_at_after=...&scheduled_at_before=...\n\n### Endpoints pendientes\n- POST /api/agent/errors/ (log errores, ReadOnly en Django)\n\n### Reglas\n- Rate limit 1s entre mensajes\n- Mensajes en español, sin IDs internos\n- Si la API falla, no se envía mensaje (continueOnFail)",
+          "height": 380,
+          "width": 500
+        },
+        "id": "nota-desc",
+        "name": "Nota - Descripcion Workflow",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -336,
+          -96
+        ]
+      },
+      {
+        "parameters": {
+          "content": "⚠️ ENDPOINT PENDIENTE: Requiere implementar POST /api/agent/errors/ (escritura) en clinic-app (Django). WorkflowErrorViewSet es ReadOnly.\n\nAlternativa temporal: log con Set node.",
+          "height": 110,
+          "width": 480
+        },
+        "id": "nota-error",
+        "name": "Nota - Log Errores Pendiente",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -352,
+          560
+        ]
+      }
+    ],
+    "connections": {
+      "Trigger Diario 10h": {
+        "main": [
+          [
+            {
+              "node": "Calcular Fecha Ayer",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Calcular Fecha Ayer": {
+        "main": [
+          [
+            {
+              "node": "Buscar Citas Completadas Ayer",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar Citas Completadas Ayer": {
+        "main": [
+          [
+            {
+              "node": "¿Hay Citas Completadas?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "¿Hay Citas Completadas?": {
+        "main": [
+          [
+            {
+              "node": "Procesar Uno a Uno",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Log Sin Citas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Procesar Uno a Uno": {
+        "main": [
+          [
+            {
+              "node": "Formatear Mensaje Followup",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          []
+        ]
+      },
+      "Formatear Mensaje Followup": {
+        "main": [
+          [
+            {
+              "node": "Enviar Followup WhatsApp",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Enviar Followup WhatsApp": {
+        "main": [
+          [
+            {
+              "node": "Rate Limit 1s",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Rate Limit 1s": {
+        "main": [
+          [
+            {
+              "node": "Procesar Uno a Uno",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Error Trigger Global": {
+        "main": [
+          [
+            {
+              "node": "Error - Log Temporal",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "devs cool",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-04-09T19:21:50.654Z",
+        "id": 18,
+        "workflowId": "Zo8siOGMbgdFL3ix",
+        "versionId": "2956cfd4-a879-4d8c-b9f7-53181d812407",
+        "event": "deactivated",
+        "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
+      },
+      {
+        "createdAt": "2026-04-09T19:21:50.700Z",
+        "id": 19,
+        "workflowId": "Zo8siOGMbgdFL3ix",
+        "versionId": "2956cfd4-a879-4d8c-b9f7-53181d812407",
+        "event": "activated",
+        "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
+      }
+    ]
+  }
 }

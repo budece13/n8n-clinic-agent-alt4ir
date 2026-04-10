@@ -1,7 +1,7 @@
 {
-  "updatedAt": "2026-04-09T02:55:29.136Z",
-  "createdAt": "2026-03-31T16:49:20.176Z",
-  "id": "rtLakHrc6xR9B8oH",
+  "updatedAt": "2026-04-10T00:36:47.246Z",
+  "createdAt": "2026-04-09T19:03:17.341Z",
+  "id": "9uusM4595mjJOMCc",
   "name": "WA-Appointments-Manager",
   "description": null,
   "active": true,
@@ -187,7 +187,7 @@
           "parameters": [
             {
               "name": "date",
-              "value": "={{ $('Trigger - Execute Workflow').first().json.preferred_date }}"
+              "value": "={{ $('Trigger - Execute Workflow').first().json.preferred_date || $now.plus(1, 'day').toFormat('yyyy-MM-dd') }}"
             },
             {
               "name": "clinic",
@@ -207,14 +207,14 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nlet slots = [];\nif (Array.isArray(raw)) {\n  slots = raw;\n} else if (raw.slots && Array.isArray(raw.slots)) {\n  slots = raw.slots;\n} else if (raw.results && Array.isArray(raw.results)) {\n  slots = raw.results;\n} else if (raw.available_slots && Array.isArray(raw.available_slots)) {\n  slots = raw.available_slots;\n}\n\nconst fecha = trigger.preferred_date\n  ? new Date(trigger.preferred_date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })\n  : 'la fecha solicitada';\n\nif (!slots.length) {\n  return [{ json: {\n    success: true,\n    response: `Lo siento, no hay horarios disponibles para ${fecha}. \u00bfQuieres que revisemos otro d\u00eda?`\n  }}];\n}\n\nconst listaHorarios = slots.map(slot => {\n  if (typeof slot === 'string') return `\u2022 ${slot}`;\n  if (slot.time) return `\u2022 ${slot.time}`;\n  if (slot.start_time) return `\u2022 ${slot.start_time}`;\n  if (slot.hour) return `\u2022 ${slot.hour}`;\n  return `\u2022 ${JSON.stringify(slot)}`;\n}).join('\\n');\n\nreturn [{ json: {\n  success: true,\n  response: `Estos son los horarios disponibles para el ${fecha}:\\n\\n${listaHorarios}\\n\\n\u00bfCu\u00e1l te viene mejor?`\n}}];"
+        "jsCode": "const raw = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\n// Si no llega preferred_date, usar mañana por defecto\nlet preferredDate = trigger.preferred_date;\nif (!preferredDate) {\n  const tomorrow = new Date();\n  tomorrow.setDate(tomorrow.getDate() + 1);\n  preferredDate = tomorrow.toISOString().split('T')[0];\n}\n\nlet slots = [];\nif (Array.isArray(raw)) {\n  slots = raw;\n} else if (raw.slots && Array.isArray(raw.slots)) {\n  slots = raw.slots;\n} else if (raw.results && Array.isArray(raw.results)) {\n  slots = raw.results;\n} else if (raw.available_slots && Array.isArray(raw.available_slots)) {\n  slots = raw.available_slots;\n}\n\nconst fecha = new Date(preferredDate).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nif (!slots.length) {\n  return [{ json: {\n    success: true,\n    response: `Lo siento, no hay horarios disponibles para ${fecha}. ¿Quieres que revisemos otro día?`\n  }}];\n}\n\nconst listaHorarios = slots.map(slot => {\n  if (typeof slot === 'string') return `• ${slot}`;\n  if (slot.time) return `• ${slot.time}`;\n  if (slot.start_time) return `• ${slot.start_time}`;\n  if (slot.hour) return `• ${slot.hour}`;\n  return `• ${JSON.stringify(slot)}`;\n}).join('\n');\n\nreturn [{ json: {\n  success: true,\n  response: `Estos son los horarios disponibles para el ${fecha}:\n\n${listaHorarios}\n\n¿Cuál te viene mejor?`\n}}];"
       },
       "id": "a-respuesta-temporal",
       "name": "A - Formatear Disponibilidad",
@@ -227,7 +227,7 @@
     },
     {
       "parameters": {
-        "content": "\u26a0\ufe0f ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/available-slots/?service={id}&date={date} en clinic-app (Django) antes de activarse. Ver CLAUDE.md secci\u00f3n 5.\n\nAlternativa temporal: pedir hora preferida al paciente y crear cita directamente (staff confirma desde dashboard).",
+        "content": "⚠️ ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/available-slots/?service={id}&date={date} en clinic-app (Django) antes de activarse. Ver CLAUDE.md sección 5.\n\nAlternativa temporal: pedir hora preferida al paciente y crear cita directamente (staff confirma desde dashboard).",
         "width": 520
       },
       "id": "nota-check-availability",
@@ -265,14 +265,14 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + trigger.phone);\n}\n\nconst patient = patients[0];\n\n// Obtener ID del servicio \u2014 puede estar vac\u00edo si el LLM no lo pas\u00f3\nlet service_id = null;\ntry {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  if (servicios.length) {\n    service_id = servicios[0].id;\n  }\n} catch (e) {\n  // B - Buscar Servicio sin datos (service vac\u00edo o no pasado)\n}\n\nif (!service_id && trigger.service) {\n  throw new Error('Servicio no encontrado: ' + trigger.service);\n}\n\nconst date = trigger.preferred_date || '';\nconst time = trigger.preferred_time || '09:00';\nconst scheduledAt = date ? `${date}T${time}:00+00:00` : '';\n\nlet endAt = '';\nif (scheduledAt) {\n  const start = new Date(scheduledAt);\n  start.setHours(start.getHours() + 1);\n  endAt = start.toISOString().replace('.000Z', '+00:00');\n}\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: trigger.phone\n}}];"
+        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + trigger.phone);\n}\n\nconst patient = patients[0];\n\n// Obtener ID del servicio — puede estar vacío si el LLM no lo pasó\nlet service_id = null;\ntry {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  if (servicios.length) {\n    service_id = servicios[0].id;\n  }\n} catch (e) {\n  // B - Buscar Servicio sin datos (service vacío o no pasado)\n}\n\nif (!service_id && trigger.service) {\n  throw new Error('Servicio no encontrado: ' + trigger.service);\n}\n\nconst date = trigger.preferred_date || '';\nconst time = trigger.preferred_time || '09:00';\nconst scheduledAt = date ? `${date}T${time}:00+00:00` : '';\n\nlet endAt = '';\nif (scheduledAt) {\n  const start = new Date(scheduledAt);\n  start.setHours(start.getHours() + 1);\n  endAt = start.toISOString().replace('.000Z', '+00:00');\n}\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: trigger.phone\n}}];"
       },
       "id": "b-preparar-datos-cita",
       "name": "B - Preparar Datos Cita",
@@ -330,15 +330,15 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       },
       "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const cita = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nif (cita.id) {\n  const fecha = cita.scheduled_at ? new Date(cita.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid'}) : 'por confirmar';\n  return [{ json: {\n    success: true,\n    response: `Tu cita ha sido registrada para el ${fecha}. Estado: pendiente de confirmaci\u00f3n. Te avisaremos cuando sea confirmada.`\n  }}];\n} else {\n  return [{ json: {\n    success: false,\n    response: 'No hemos podido crear tu cita en este momento. Por favor, ll\u00e1manos para agendar tu visita.'\n  }}];\n}"
+        "jsCode": "const cita = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nif (cita.id) {\n  const fecha = cita.scheduled_at ? new Date(cita.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid'}) : 'por confirmar';\n  return [{ json: {\n    success: true,\n    response: `Tu cita ha sido registrada para el ${fecha}. Estado: pendiente de confirmación. Te avisaremos cuando sea confirmada.`\n  }}];\n} else {\n  return [{ json: {\n    success: false,\n    response: 'No hemos podido crear tu cita en este momento. Por favor, llámanos para agendar tu visita.'\n  }}];\n}"
       },
       "id": "b-respuesta-crear",
       "name": "B - Respuesta Crear Cita",
@@ -375,8 +375,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       }
     },
@@ -410,8 +410,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       }
     },
@@ -432,8 +432,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       },
       "continueOnFail": true
@@ -456,7 +456,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const result = $input.first().json;\nif (result.status === 'cancelled' || result.id) {\n  return [{ json: { success: true, response: 'Tu cita ha sido cancelada correctamente. Si necesitas agendar otra, no dudes en escribirnos.' }}];\n} else {\n  return [{ json: { success: false, response: 'No hemos encontrado una cita activa para cancelar. \u00bfPuedes indicarnos m\u00e1s detalles?' }}];\n}"
+        "jsCode": "const result = $input.first().json;\nif (result.status === 'cancelled' || result.id) {\n  return [{ json: { success: true, response: 'Tu cita ha sido cancelada correctamente. Si necesitas agendar otra, no dudes en escribirnos.' }}];\n} else {\n  return [{ json: { success: false, response: 'No hemos encontrado una cita activa para cancelar. ¿Puedes indicarnos más detalles?' }}];\n}"
       },
       "id": "c-respuesta-cancel",
       "name": "C - Respuesta Cancelacion",
@@ -493,8 +493,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       }
     },
@@ -528,14 +528,14 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json;\nconst citas = raw.results || (Array.isArray(raw) ? raw : []);\n\nif (!citas.length) {\n  return [{ json: { success: true, response: 'No tienes citas pendientes en este momento.' }}];\n}\n\nconst lista = citas.map((c, i) => {\n  const fecha = new Date(c.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid'});\n  const estado = c.status === 'confirmed' ? 'Confirmada' : 'Pendiente';\n  return `${i+1}. ${fecha} - ${estado}`;\n}).join('\\n');\n\nreturn [{ json: { success: true, response: `Tus pr\u00f3ximas citas:\\n${lista}` }}];"
+        "jsCode": "const raw = $input.first().json;\nconst citas = raw.results || (Array.isArray(raw) ? raw : []);\n\nif (!citas.length) {\n  return [{ json: { success: true, response: 'No tienes citas pendientes en este momento.' }}];\n}\n\nconst lista = citas.map((c, i) => {\n  const fecha = new Date(c.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid'});\n  const estado = c.status === 'confirmed' ? 'Confirmada' : 'Pendiente';\n  return `${i+1}. ${fecha} - ${estado}`;\n}).join('\\n');\n\nreturn [{ json: { success: true, response: `Tus próximas citas:\\n${lista}` }}];"
       },
       "id": "d-formatear-lista",
       "name": "D - Formatear Lista Citas",
@@ -563,16 +563,66 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       },
       "continueOnFail": true
     },
     {
       "parameters": {
-        "mode": "expression",
-        "output": "={{ $('Trigger - Execute Workflow').first().json.response || 'confirm' }}"
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Trigger - Execute Workflow').first().json.response }}",
+                    "rightValue": "confirm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "rightType": "value"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": false
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Trigger - Execute Workflow').first().json.response }}",
+                    "rightValue": "cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "rightType": "value"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": false
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 2
+        }
       },
       "id": "e-router-respuesta",
       "name": "E - Router por Respuesta",
@@ -601,7 +651,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { success: true, response: '\u00a1Tu cita ha sido confirmada! Te esperamos. Si necesitas cambiar algo, escr\u00edbenos.' }}];"
+        "jsCode": "return [{ json: { success: true, response: '¡Tu cita ha sido confirmada! Te esperamos. Si necesitas cambiar algo, escríbenos.' }}];"
       },
       "id": "e-respuesta-confirmacion",
       "name": "E - Respuesta Confirmacion",
@@ -630,7 +680,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { success: true, response: 'Tu cita ha sido cancelada. Si deseas reprogramar, dime cu\u00e1ndo te viene bien.' }}];"
+        "jsCode": "return [{ json: { success: true, response: 'Tu cita ha sido cancelada. Si deseas reprogramar, dime cuándo te viene bien.' }}];"
       },
       "id": "e-respuesta-cancelacion-reminder",
       "name": "E - Respuesta Cancelacion Reminder",
@@ -667,7 +717,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { success: false, response: 'Lo siento, en este momento no puedo procesar tu solicitud. Int\u00e9ntelo m\u00e1s tarde.' }}];"
+        "jsCode": "return [{ json: { success: false, response: 'Lo siento, en este momento no puedo procesar tu solicitud. Inténtelo más tarde.' }}];"
       },
       "id": "error-respuesta-amigable",
       "name": "Error - Respuesta Amigable",
@@ -680,7 +730,7 @@
     },
     {
       "parameters": {
-        "content": "## WA-Appointments-Manager\n\nSub-workflow para gesti\u00f3n completa de citas.\n\n### Ramas\n- **check_availability**: DESACTIVADA (endpoint pendiente)\n- **create**: Buscar paciente \u2192 Crear cita en Django\n- **cancel**: Buscar paciente \u2192 Buscar cita activa \u2192 Obtener token \u2192 Cancelar por token p\u00fablico\n- **list_upcoming**: Buscar paciente \u2192 Listar citas pendientes/confirmadas\n- **confirm_from_reminder**: Obtener token \u2192 Confirmar/Cancelar por token p\u00fablico\n\n### Endpoints Django usados\n- GET /api/patients/?phone={phone}\n- GET /api/appointments/?patient={id}&status=pending,confirmed\n- POST /api/appointments/ (crear cita)\n- GET /api/appointments/{id}/status/ (obtener token)\n- POST /api/public/appointments/{token}/confirm/ (sin auth)\n- POST /api/public/appointments/{token}/cancel/ (sin auth)\n\n### Endpoints pendientes\n- GET /api/v1/appointments/available-slots/?service={id}&date={date}\n- POST /api/agent/errors/ (log errores, ReadOnly)",
+        "content": "## WA-Appointments-Manager\n\nSub-workflow para gestión completa de citas.\n\n### Ramas\n- **check_availability**: DESACTIVADA (endpoint pendiente)\n- **create**: Buscar paciente → Crear cita en Django\n- **cancel**: Buscar paciente → Buscar cita activa → Obtener token → Cancelar por token público\n- **list_upcoming**: Buscar paciente → Listar citas pendientes/confirmadas\n- **confirm_from_reminder**: Obtener token → Confirmar/Cancelar por token público\n\n### Endpoints Django usados\n- GET /api/patients/?phone={phone}\n- GET /api/appointments/?patient={id}&status=pending,confirmed\n- POST /api/appointments/ (crear cita)\n- GET /api/appointments/{id}/status/ (obtener token)\n- POST /api/public/appointments/{token}/confirm/ (sin auth)\n- POST /api/public/appointments/{token}/cancel/ (sin auth)\n\n### Endpoints pendientes\n- GET /api/v1/appointments/available-slots/?service={id}&date={date}\n- POST /api/agent/errors/ (log errores, ReadOnly)",
         "height": 580,
         "width": 500
       },
@@ -695,7 +745,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const patient = $('F - Crear Paciente').first().json;\n\nif (patient.id) {\n  return [{ json: {\n    success: true,\n    response: `\u00a1Perfecto, ${patient.first_name}! Ya est\u00e1s registrado/a. \u00bfEn qu\u00e9 puedo ayudarte? Puedo informarte sobre nuestros servicios, ayudarte a agendar una cita...`\n  }}];\n} else {\n  return [{ json: {\n    success: false,\n    response: 'Ha habido un problema al registrarte. Por favor, int\u00e9ntalo de nuevo.'\n  }}];\n}"
+        "jsCode": "const patient = $('F - Crear Paciente').first().json;\n\nif (patient.id) {\n  return [{ json: {\n    success: true,\n    response: `¡Perfecto, ${patient.first_name}! Ya estás registrado/a. ¿En qué puedo ayudarte? Puedo informarte sobre nuestros servicios, ayudarte a agendar una cita...`\n  }}];\n} else {\n  return [{ json: {\n    success: false,\n    response: 'Ha habido un problema al registrarte. Por favor, inténtalo de nuevo.'\n  }}];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -754,8 +804,8 @@
       "name": "B - Buscar Servicio",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       }
     },
@@ -779,8 +829,8 @@
       "name": "POST Workflow Error",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       }
     },
@@ -805,8 +855,8 @@
       "name": "F - Crear Sesion",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       },
       "continueOnFail": true
@@ -836,8 +886,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "rEUbsss2SSHpZ6m7",
-          "name": "Header Auth Token Django"
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
         }
       },
       "continueOnFail": true
@@ -1156,51 +1206,43 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate",
-    "availableInMCP": false,
     "timezone": "Europe/Madrid",
     "saveDataErrorExecution": "all",
-    "callerPolicy": "workflowsFromSameOwner"
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
   },
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "33f7750c-0d21-484e-86c0-a32f2f23bdaa",
-  "activeVersionId": "33f7750c-0d21-484e-86c0-a32f2f23bdaa",
-  "versionCounter": 311,
+  "versionId": "3ae214ca-6681-4e46-801c-0e021fe7c1a3",
+  "activeVersionId": "3ae214ca-6681-4e46-801c-0e021fe7c1a3",
+  "versionCounter": 28,
   "triggerCount": 0,
   "shared": [
     {
-      "updatedAt": "2026-03-31T16:49:20.182Z",
-      "createdAt": "2026-03-31T16:49:20.182Z",
+      "updatedAt": "2026-04-09T19:03:17.341Z",
+      "createdAt": "2026-04-09T19:03:17.341Z",
       "role": "workflow:owner",
-      "workflowId": "rtLakHrc6xR9B8oH",
-      "projectId": "Uw7iGhGodpLTW8Zv",
+      "workflowId": "9uusM4595mjJOMCc",
+      "projectId": "2RRplptgpwnH1F4I",
       "project": {
-        "updatedAt": "2026-03-27T04:32:05.440Z",
-        "createdAt": "2026-03-27T04:24:04.464Z",
-        "id": "Uw7iGhGodpLTW8Zv",
-        "name": "Jes\u00fas Dev <jesuslopezjaen03@gmail.com>",
+        "updatedAt": "2026-04-09T18:48:10.704Z",
+        "createdAt": "2026-04-09T18:02:45.199Z",
+        "id": "2RRplptgpwnH1F4I",
+        "name": "devs cool <devsnncool@gmail.com>",
         "type": "personal",
         "icon": null,
         "description": null,
-        "creatorId": "fbbfb9bb-6047-4e9a-87a3-f8fffa66500b"
+        "creatorId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       }
     }
   ],
-  "tags": [
-    {
-      "updatedAt": "2026-03-31T16:47:53.388Z",
-      "createdAt": "2026-03-31T16:47:53.388Z",
-      "id": "STkeOwvyOGyHXNaU",
-      "name": "Agente_Cl\u00ednicas"
-    }
-  ],
+  "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-04-09T02:55:29.141Z",
-    "createdAt": "2026-04-09T02:55:29.141Z",
-    "versionId": "33f7750c-0d21-484e-86c0-a32f2f23bdaa",
-    "workflowId": "rtLakHrc6xR9B8oH",
+    "updatedAt": "2026-04-10T00:36:47.250Z",
+    "createdAt": "2026-04-10T00:36:47.250Z",
+    "versionId": "3ae214ca-6681-4e46-801c-0e021fe7c1a3",
+    "workflowId": "9uusM4595mjJOMCc",
     "nodes": [
       {
         "parameters": {
@@ -1382,7 +1424,7 @@
             "parameters": [
               {
                 "name": "date",
-                "value": "={{ $('Trigger - Execute Workflow').first().json.preferred_date }}"
+                "value": "={{ $('Trigger - Execute Workflow').first().json.preferred_date || $now.plus(1, 'day').toFormat('yyyy-MM-dd') }}"
               },
               {
                 "name": "clinic",
@@ -1402,14 +1444,14 @@
         ],
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         }
       },
       {
         "parameters": {
-          "jsCode": "const raw = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nlet slots = [];\nif (Array.isArray(raw)) {\n  slots = raw;\n} else if (raw.slots && Array.isArray(raw.slots)) {\n  slots = raw.slots;\n} else if (raw.results && Array.isArray(raw.results)) {\n  slots = raw.results;\n} else if (raw.available_slots && Array.isArray(raw.available_slots)) {\n  slots = raw.available_slots;\n}\n\nconst fecha = trigger.preferred_date\n  ? new Date(trigger.preferred_date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })\n  : 'la fecha solicitada';\n\nif (!slots.length) {\n  return [{ json: {\n    success: true,\n    response: `Lo siento, no hay horarios disponibles para ${fecha}. \u00bfQuieres que revisemos otro d\u00eda?`\n  }}];\n}\n\nconst listaHorarios = slots.map(slot => {\n  if (typeof slot === 'string') return `\u2022 ${slot}`;\n  if (slot.time) return `\u2022 ${slot.time}`;\n  if (slot.start_time) return `\u2022 ${slot.start_time}`;\n  if (slot.hour) return `\u2022 ${slot.hour}`;\n  return `\u2022 ${JSON.stringify(slot)}`;\n}).join('\\n');\n\nreturn [{ json: {\n  success: true,\n  response: `Estos son los horarios disponibles para el ${fecha}:\\n\\n${listaHorarios}\\n\\n\u00bfCu\u00e1l te viene mejor?`\n}}];"
+          "jsCode": "const raw = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\n// Si no llega preferred_date, usar mañana por defecto\nlet preferredDate = trigger.preferred_date;\nif (!preferredDate) {\n  const tomorrow = new Date();\n  tomorrow.setDate(tomorrow.getDate() + 1);\n  preferredDate = tomorrow.toISOString().split('T')[0];\n}\n\nlet slots = [];\nif (Array.isArray(raw)) {\n  slots = raw;\n} else if (raw.slots && Array.isArray(raw.slots)) {\n  slots = raw.slots;\n} else if (raw.results && Array.isArray(raw.results)) {\n  slots = raw.results;\n} else if (raw.available_slots && Array.isArray(raw.available_slots)) {\n  slots = raw.available_slots;\n}\n\nconst fecha = new Date(preferredDate).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nif (!slots.length) {\n  return [{ json: {\n    success: true,\n    response: `Lo siento, no hay horarios disponibles para ${fecha}. ¿Quieres que revisemos otro día?`\n  }}];\n}\n\nconst listaHorarios = slots.map(slot => {\n  if (typeof slot === 'string') return `• ${slot}`;\n  if (slot.time) return `• ${slot.time}`;\n  if (slot.start_time) return `• ${slot.start_time}`;\n  if (slot.hour) return `• ${slot.hour}`;\n  return `• ${JSON.stringify(slot)}`;\n}).join('\n');\n\nreturn [{ json: {\n  success: true,\n  response: `Estos son los horarios disponibles para el ${fecha}:\n\n${listaHorarios}\n\n¿Cuál te viene mejor?`\n}}];"
         },
         "id": "a-respuesta-temporal",
         "name": "A - Formatear Disponibilidad",
@@ -1422,7 +1464,7 @@
       },
       {
         "parameters": {
-          "content": "\u26a0\ufe0f ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/available-slots/?service={id}&date={date} en clinic-app (Django) antes de activarse. Ver CLAUDE.md secci\u00f3n 5.\n\nAlternativa temporal: pedir hora preferida al paciente y crear cita directamente (staff confirma desde dashboard).",
+          "content": "⚠️ ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/available-slots/?service={id}&date={date} en clinic-app (Django) antes de activarse. Ver CLAUDE.md sección 5.\n\nAlternativa temporal: pedir hora preferida al paciente y crear cita directamente (staff confirma desde dashboard).",
           "width": 520
         },
         "id": "nota-check-availability",
@@ -1460,14 +1502,14 @@
         ],
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         }
       },
       {
         "parameters": {
-          "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + trigger.phone);\n}\n\nconst patient = patients[0];\n\n// Obtener ID del servicio \u2014 puede estar vac\u00edo si el LLM no lo pas\u00f3\nlet service_id = null;\ntry {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  if (servicios.length) {\n    service_id = servicios[0].id;\n  }\n} catch (e) {\n  // B - Buscar Servicio sin datos (service vac\u00edo o no pasado)\n}\n\nif (!service_id && trigger.service) {\n  throw new Error('Servicio no encontrado: ' + trigger.service);\n}\n\nconst date = trigger.preferred_date || '';\nconst time = trigger.preferred_time || '09:00';\nconst scheduledAt = date ? `${date}T${time}:00+00:00` : '';\n\nlet endAt = '';\nif (scheduledAt) {\n  const start = new Date(scheduledAt);\n  start.setHours(start.getHours() + 1);\n  endAt = start.toISOString().replace('.000Z', '+00:00');\n}\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: trigger.phone\n}}];"
+          "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + trigger.phone);\n}\n\nconst patient = patients[0];\n\n// Obtener ID del servicio — puede estar vacío si el LLM no lo pasó\nlet service_id = null;\ntry {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  if (servicios.length) {\n    service_id = servicios[0].id;\n  }\n} catch (e) {\n  // B - Buscar Servicio sin datos (service vacío o no pasado)\n}\n\nif (!service_id && trigger.service) {\n  throw new Error('Servicio no encontrado: ' + trigger.service);\n}\n\nconst date = trigger.preferred_date || '';\nconst time = trigger.preferred_time || '09:00';\nconst scheduledAt = date ? `${date}T${time}:00+00:00` : '';\n\nlet endAt = '';\nif (scheduledAt) {\n  const start = new Date(scheduledAt);\n  start.setHours(start.getHours() + 1);\n  endAt = start.toISOString().replace('.000Z', '+00:00');\n}\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: trigger.phone\n}}];"
         },
         "id": "b-preparar-datos-cita",
         "name": "B - Preparar Datos Cita",
@@ -1525,15 +1567,15 @@
         ],
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         },
         "continueOnFail": true
       },
       {
         "parameters": {
-          "jsCode": "const cita = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nif (cita.id) {\n  const fecha = cita.scheduled_at ? new Date(cita.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid'}) : 'por confirmar';\n  return [{ json: {\n    success: true,\n    response: `Tu cita ha sido registrada para el ${fecha}. Estado: pendiente de confirmaci\u00f3n. Te avisaremos cuando sea confirmada.`\n  }}];\n} else {\n  return [{ json: {\n    success: false,\n    response: 'No hemos podido crear tu cita en este momento. Por favor, ll\u00e1manos para agendar tu visita.'\n  }}];\n}"
+          "jsCode": "const cita = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nif (cita.id) {\n  const fecha = cita.scheduled_at ? new Date(cita.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid'}) : 'por confirmar';\n  return [{ json: {\n    success: true,\n    response: `Tu cita ha sido registrada para el ${fecha}. Estado: pendiente de confirmación. Te avisaremos cuando sea confirmada.`\n  }}];\n} else {\n  return [{ json: {\n    success: false,\n    response: 'No hemos podido crear tu cita en este momento. Por favor, llámanos para agendar tu visita.'\n  }}];\n}"
         },
         "id": "b-respuesta-crear",
         "name": "B - Respuesta Crear Cita",
@@ -1570,8 +1612,8 @@
         ],
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         }
       },
@@ -1605,8 +1647,8 @@
         ],
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         }
       },
@@ -1627,8 +1669,8 @@
         ],
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         },
         "continueOnFail": true
@@ -1651,7 +1693,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const result = $input.first().json;\nif (result.status === 'cancelled' || result.id) {\n  return [{ json: { success: true, response: 'Tu cita ha sido cancelada correctamente. Si necesitas agendar otra, no dudes en escribirnos.' }}];\n} else {\n  return [{ json: { success: false, response: 'No hemos encontrado una cita activa para cancelar. \u00bfPuedes indicarnos m\u00e1s detalles?' }}];\n}"
+          "jsCode": "const result = $input.first().json;\nif (result.status === 'cancelled' || result.id) {\n  return [{ json: { success: true, response: 'Tu cita ha sido cancelada correctamente. Si necesitas agendar otra, no dudes en escribirnos.' }}];\n} else {\n  return [{ json: { success: false, response: 'No hemos encontrado una cita activa para cancelar. ¿Puedes indicarnos más detalles?' }}];\n}"
         },
         "id": "c-respuesta-cancel",
         "name": "C - Respuesta Cancelacion",
@@ -1688,8 +1730,8 @@
         ],
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         }
       },
@@ -1723,14 +1765,14 @@
         ],
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         }
       },
       {
         "parameters": {
-          "jsCode": "const raw = $input.first().json;\nconst citas = raw.results || (Array.isArray(raw) ? raw : []);\n\nif (!citas.length) {\n  return [{ json: { success: true, response: 'No tienes citas pendientes en este momento.' }}];\n}\n\nconst lista = citas.map((c, i) => {\n  const fecha = new Date(c.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid'});\n  const estado = c.status === 'confirmed' ? 'Confirmada' : 'Pendiente';\n  return `${i+1}. ${fecha} - ${estado}`;\n}).join('\\n');\n\nreturn [{ json: { success: true, response: `Tus pr\u00f3ximas citas:\\n${lista}` }}];"
+          "jsCode": "const raw = $input.first().json;\nconst citas = raw.results || (Array.isArray(raw) ? raw : []);\n\nif (!citas.length) {\n  return [{ json: { success: true, response: 'No tienes citas pendientes en este momento.' }}];\n}\n\nconst lista = citas.map((c, i) => {\n  const fecha = new Date(c.scheduled_at).toLocaleString('es-ES', {timeZone: 'Europe/Madrid'});\n  const estado = c.status === 'confirmed' ? 'Confirmada' : 'Pendiente';\n  return `${i+1}. ${fecha} - ${estado}`;\n}).join('\\n');\n\nreturn [{ json: { success: true, response: `Tus próximas citas:\\n${lista}` }}];"
         },
         "id": "d-formatear-lista",
         "name": "D - Formatear Lista Citas",
@@ -1758,16 +1800,66 @@
         ],
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         },
         "continueOnFail": true
       },
       {
         "parameters": {
-          "mode": "expression",
-          "output": "={{ $('Trigger - Execute Workflow').first().json.response || 'confirm' }}"
+          "mode": "rules",
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": false,
+                    "leftValue": "",
+                    "typeValidation": "loose"
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $('Trigger - Execute Workflow').first().json.response }}",
+                      "rightValue": "confirm",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals",
+                        "rightType": "value"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": false
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": false,
+                    "leftValue": "",
+                    "typeValidation": "loose"
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $('Trigger - Execute Workflow').first().json.response }}",
+                      "rightValue": "cancel",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals",
+                        "rightType": "value"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": false
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": 2
+          }
         },
         "id": "e-router-respuesta",
         "name": "E - Router por Respuesta",
@@ -1796,7 +1888,7 @@
       },
       {
         "parameters": {
-          "jsCode": "return [{ json: { success: true, response: '\u00a1Tu cita ha sido confirmada! Te esperamos. Si necesitas cambiar algo, escr\u00edbenos.' }}];"
+          "jsCode": "return [{ json: { success: true, response: '¡Tu cita ha sido confirmada! Te esperamos. Si necesitas cambiar algo, escríbenos.' }}];"
         },
         "id": "e-respuesta-confirmacion",
         "name": "E - Respuesta Confirmacion",
@@ -1825,7 +1917,7 @@
       },
       {
         "parameters": {
-          "jsCode": "return [{ json: { success: true, response: 'Tu cita ha sido cancelada. Si deseas reprogramar, dime cu\u00e1ndo te viene bien.' }}];"
+          "jsCode": "return [{ json: { success: true, response: 'Tu cita ha sido cancelada. Si deseas reprogramar, dime cuándo te viene bien.' }}];"
         },
         "id": "e-respuesta-cancelacion-reminder",
         "name": "E - Respuesta Cancelacion Reminder",
@@ -1862,7 +1954,7 @@
       },
       {
         "parameters": {
-          "jsCode": "return [{ json: { success: false, response: 'Lo siento, en este momento no puedo procesar tu solicitud. Int\u00e9ntelo m\u00e1s tarde.' }}];"
+          "jsCode": "return [{ json: { success: false, response: 'Lo siento, en este momento no puedo procesar tu solicitud. Inténtelo más tarde.' }}];"
         },
         "id": "error-respuesta-amigable",
         "name": "Error - Respuesta Amigable",
@@ -1875,7 +1967,7 @@
       },
       {
         "parameters": {
-          "content": "## WA-Appointments-Manager\n\nSub-workflow para gesti\u00f3n completa de citas.\n\n### Ramas\n- **check_availability**: DESACTIVADA (endpoint pendiente)\n- **create**: Buscar paciente \u2192 Crear cita en Django\n- **cancel**: Buscar paciente \u2192 Buscar cita activa \u2192 Obtener token \u2192 Cancelar por token p\u00fablico\n- **list_upcoming**: Buscar paciente \u2192 Listar citas pendientes/confirmadas\n- **confirm_from_reminder**: Obtener token \u2192 Confirmar/Cancelar por token p\u00fablico\n\n### Endpoints Django usados\n- GET /api/patients/?phone={phone}\n- GET /api/appointments/?patient={id}&status=pending,confirmed\n- POST /api/appointments/ (crear cita)\n- GET /api/appointments/{id}/status/ (obtener token)\n- POST /api/public/appointments/{token}/confirm/ (sin auth)\n- POST /api/public/appointments/{token}/cancel/ (sin auth)\n\n### Endpoints pendientes\n- GET /api/v1/appointments/available-slots/?service={id}&date={date}\n- POST /api/agent/errors/ (log errores, ReadOnly)",
+          "content": "## WA-Appointments-Manager\n\nSub-workflow para gestión completa de citas.\n\n### Ramas\n- **check_availability**: DESACTIVADA (endpoint pendiente)\n- **create**: Buscar paciente → Crear cita en Django\n- **cancel**: Buscar paciente → Buscar cita activa → Obtener token → Cancelar por token público\n- **list_upcoming**: Buscar paciente → Listar citas pendientes/confirmadas\n- **confirm_from_reminder**: Obtener token → Confirmar/Cancelar por token público\n\n### Endpoints Django usados\n- GET /api/patients/?phone={phone}\n- GET /api/appointments/?patient={id}&status=pending,confirmed\n- POST /api/appointments/ (crear cita)\n- GET /api/appointments/{id}/status/ (obtener token)\n- POST /api/public/appointments/{token}/confirm/ (sin auth)\n- POST /api/public/appointments/{token}/cancel/ (sin auth)\n\n### Endpoints pendientes\n- GET /api/v1/appointments/available-slots/?service={id}&date={date}\n- POST /api/agent/errors/ (log errores, ReadOnly)",
           "height": 580,
           "width": 500
         },
@@ -1890,7 +1982,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const patient = $('F - Crear Paciente').first().json;\n\nif (patient.id) {\n  return [{ json: {\n    success: true,\n    response: `\u00a1Perfecto, ${patient.first_name}! Ya est\u00e1s registrado/a. \u00bfEn qu\u00e9 puedo ayudarte? Puedo informarte sobre nuestros servicios, ayudarte a agendar una cita...`\n  }}];\n} else {\n  return [{ json: {\n    success: false,\n    response: 'Ha habido un problema al registrarte. Por favor, int\u00e9ntalo de nuevo.'\n  }}];\n}"
+          "jsCode": "const patient = $('F - Crear Paciente').first().json;\n\nif (patient.id) {\n  return [{ json: {\n    success: true,\n    response: `¡Perfecto, ${patient.first_name}! Ya estás registrado/a. ¿En qué puedo ayudarte? Puedo informarte sobre nuestros servicios, ayudarte a agendar una cita...`\n  }}];\n} else {\n  return [{ json: {\n    success: false,\n    response: 'Ha habido un problema al registrarte. Por favor, inténtalo de nuevo.'\n  }}];\n}"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -1949,8 +2041,8 @@
         "name": "B - Buscar Servicio",
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         }
       },
@@ -1974,8 +2066,8 @@
         "name": "POST Workflow Error",
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         }
       },
@@ -2000,8 +2092,8 @@
         "name": "F - Crear Sesion",
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         },
         "continueOnFail": true
@@ -2031,8 +2123,8 @@
         ],
         "credentials": {
           "httpHeaderAuth": {
-            "id": "rEUbsss2SSHpZ6m7",
-            "name": "Header Auth Token Django"
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
           }
         },
         "continueOnFail": true
@@ -2349,26 +2441,26 @@
         ]
       }
     },
-    "authors": "Jes\u00fas Dev",
+    "authors": "devs cool",
     "name": null,
     "description": null,
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-04-09T02:55:29.801Z",
-        "id": 121,
-        "workflowId": "rtLakHrc6xR9B8oH",
-        "versionId": "33f7750c-0d21-484e-86c0-a32f2f23bdaa",
-        "event": "activated",
-        "userId": "fbbfb9bb-6047-4e9a-87a3-f8fffa66500b"
+        "createdAt": "2026-04-10T00:36:47.363Z",
+        "id": 56,
+        "workflowId": "9uusM4595mjJOMCc",
+        "versionId": "3ae214ca-6681-4e46-801c-0e021fe7c1a3",
+        "event": "deactivated",
+        "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       },
       {
-        "createdAt": "2026-04-09T02:55:29.299Z",
-        "id": 120,
-        "workflowId": "rtLakHrc6xR9B8oH",
-        "versionId": "33f7750c-0d21-484e-86c0-a32f2f23bdaa",
-        "event": "deactivated",
-        "userId": "fbbfb9bb-6047-4e9a-87a3-f8fffa66500b"
+        "createdAt": "2026-04-10T00:36:47.413Z",
+        "id": 57,
+        "workflowId": "9uusM4595mjJOMCc",
+        "versionId": "3ae214ca-6681-4e46-801c-0e021fe7c1a3",
+        "event": "activated",
+        "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       }
     ]
   }
