@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-04-15T01:50:22.684Z",
+  "updatedAt": "2026-04-15T18:58:33.618Z",
   "createdAt": "2026-04-09T19:03:17.341Z",
   "id": "9uusM4595mjJOMCc",
   "name": "WA-Appointments-Manager",
@@ -10,7 +10,7 @@
     {
       "parameters": {
         "inputSource": "jsonExample",
-        "jsonExample": "{\n  \"action\": \"create\",\n  \"phone\": \"+34600000001\",\n  \"clinic_id\": \"clinic-test\",\n  \"params\": \"{\\\"service\\\":\\\"Consulta General\\\",\\\"preferred_date\\\":\\\"2026-04-16\\\",\\\"preferred_time\\\":\\\"10:00\\\"}\"\n}"
+        "jsonExample": "{\n  \"action\": \"create\",\n  \"phone\": \"+34600000001\",\n  \"clinic_id\": \"clinic-test\",\n  \"params\": \"{\\\"service_id\\\":1,\\\"professional_id\\\":2,\\\"preferred_date\\\":\\\"2026-04-16\\\",\\\"preferred_time\\\":\\\"10:00\\\"}\"\n}"
       },
       "id": "trigger-execute",
       "name": "Trigger - Execute Workflow",
@@ -346,14 +346,14 @@
     },
     {
       "parameters": {
-        "jsCode": "const norm = $('Normalizar Inputs').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + norm.phone);\n}\n\nconst patient = patients[0];\n\n// Buscar servicio por nombre con match parcial\nlet service_id = null;\ntry {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  const query = (norm.service || '').toLowerCase().trim();\n  \n  let match = null;\n  if (query) {\n    // Match exacto\n    match = servicios.find(s => s.name.toLowerCase() === query);\n    // Match parcial\n    if (!match) match = servicios.find(s => s.name.toLowerCase().includes(query));\n    // Match inverso\n    if (!match) match = servicios.find(s => query.includes(s.name.toLowerCase()));\n  }\n  // Si hay un único servicio, usarlo directamente\n  if (!match && servicios.length === 1) match = servicios[0];\n  \n  if (match) service_id = match.id;\n} catch (e) {}\n\nif (!service_id && norm.service) {\n  throw new Error('Servicio no encontrado: ' + norm.service);\n}\n\nconst date = norm.preferred_date || '';\nconst time = norm.preferred_time || '09:00';\nconst scheduledAt = date ? `${date}T${time}:00+00:00` : '';\n\nlet endAt = '';\nif (scheduledAt) {\n  const start = new Date(scheduledAt);\n  start.setHours(start.getHours() + 1);\n  endAt = start.toISOString().replace('.000Z', '+00:00');\n}\n\nconst professionalId = norm.professional_id && norm.professional_id !== '' ? parseInt(norm.professional_id) || norm.professional_id : null;\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  professional_id: professionalId,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: norm.phone\n}}];"
+        "jsCode": "const norm = $('Normalizar Inputs').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + norm.phone);\n}\n\nconst patient = patients[0];\n\n// Buscar servicio por nombre con match parcial\nlet service_id = norm.service_id || null;\nlet serviceDuration = 30;\n\nif (!service_id) {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  const query = (norm.service || '').toLowerCase().trim();\n\n  let match = null;\n  if (query) {\n    match = servicios.find(s => s.name.toLowerCase() === query);\n    if (!match) match = servicios.find(s => s.name.toLowerCase().includes(query));\n    if (!match) match = servicios.find(s => query.includes(s.name.toLowerCase()));\n  }\n  if (!match && servicios.length === 1) match = servicios[0];\n\n  if (match) {\n    service_id = match.id;\n    if (match.duration_minutes) serviceDuration = match.duration_minutes;\n  }\n}\n\nif (!service_id) {\n  throw new Error('Servicio no encontrado: ' + (norm.service || 'no especificado') + '. Usa action=list_services para ver los disponibles.');\n}\n\n// Resolver professional_id\nlet professional_id = norm.professional_id ? parseInt(norm.professional_id) : null;\n\nif (!professional_id) {\n  const profRaw = $('B - Buscar Profesional').first().json;\n  const profs = profRaw.results || (Array.isArray(profRaw) ? profRaw : []);\n\n  if (profs.length === 1) {\n    professional_id = profs[0].id;\n  } else if (profs.length > 1) {\n    const searchName = (norm.professional_name || '').toLowerCase().trim();\n    if (searchName) {\n      const match = profs.find(p => {\n        const info = p.user_info || {};\n        const fullName = (info.full_name || (info.first_name + ' ' + info.last_name) || '').toLowerCase();\n        return fullName.includes(searchName) || searchName.includes(fullName.split(' ')[0]);\n      });\n      professional_id = match ? match.id : null;\n    }\n  }\n}\n\nif (!professional_id) {\n  throw new Error('Profesional no encontrado: ' + (norm.professional_name || 'no especificado') + '. Usa action=list_professionals para ver los disponibles.');\n}\n\nconst date = norm.preferred_date || '';\nconst time = norm.preferred_time || '09:00';\n\nif (!date) {\n  throw new Error('Se requiere preferred_date para crear la cita.');\n}\n\n// Calcular offset UTC de Europe/Madrid para la fecha indicada (DST automatico)\nfunction getMadridOffsetHours(dateStr) {\n  const d = new Date(dateStr + 'T12:00:00Z');\n  const madridHour = parseInt(d.toLocaleString('en-US', {\n    timeZone: 'Europe/Madrid',\n    hour: 'numeric',\n    hour12: false\n  }));\n  let diff = madridHour - 12;\n  if (diff > 12) diff -= 24;\n  if (diff < -12) diff += 24;\n  return diff; // +1 en invierno (CET), +2 en verano (CEST)\n}\n\nconst offsetHours = getMadridOffsetHours(date);\nconst sign = offsetHours >= 0 ? '+' : '-';\nconst offsetStr = sign + String(Math.abs(offsetHours)).padStart(2, '0') + ':00';\n\n// scheduled_at con offset Madrid correcto\nconst scheduledAt = date + 'T' + time + ':00' + offsetStr;\n\n// end_at en UTC: hora local - offset + duracion\nconst [h, m] = time.split(':').map(Number);\nconst utcStart = new Date(Date.UTC(\n  parseInt(date.substring(0, 4)),\n  parseInt(date.substring(5, 7)) - 1,\n  parseInt(date.substring(8, 10)),\n  h - offsetHours,\n  m,\n  0\n));\nutcStart.setMinutes(utcStart.getMinutes() + serviceDuration);\nconst endAt = utcStart.toISOString();\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  professional_id: professional_id,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: norm.phone\n}}];"
       },
       "id": "b-preparar-datos-cita",
       "name": "B - Preparar Datos Cita",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1040,
+        1184,
         368
       ]
     },
@@ -364,19 +364,16 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": []
-        },
-        "options": {},
         "specifyBody": "json",
-        "jsonBody": "={\n  \"clinic\": \"{{ $json.clinic_id }}\",\n  \"patient\": {{ $json.patient_id }},\n  \"service\": {{ $json.service_id }},\n  \"professional\": {{ $json.professional_id !== null && $json.professional_id !== '' ? $json.professional_id : null }},\n  \"scheduled_at\": \"{{ $json.scheduled_at }}\",\n  \"end_at\": \"{{ $json.end_at }}\",\n  \"status\": \"pending\"\n}"
+        "jsonBody": "={{ JSON.stringify({\n  clinic: $json.clinic_id,\n  patient: $json.patient_id,\n  service: $json.service_id,\n  professional: $json.professional_id || null,\n  scheduled_at: $json.scheduled_at,\n  end_at: $json.end_at,\n  status: 'pending'\n}) }}",
+        "options": {}
       },
       "id": "b-crear-cita",
       "name": "B - Crear Cita Django",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1264,
+        1376,
         368
       ],
       "credentials": {
@@ -396,7 +393,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1520,
+        1568,
         368
       ]
     },
@@ -839,16 +836,12 @@
             }
           ]
         },
-        "sendBody": false,
-        "bodyParameters": {
-          "parameters": []
-        },
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        832,
+        784,
         368
       ],
       "id": "33965a71-ac9f-40ce-a44d-07cd4a1e92aa",
@@ -945,7 +938,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const trigger = $input.first().json;\nlet p = {};\ntry { p = typeof trigger.params === 'string' ? JSON.parse(trigger.params) : (trigger.params || {}); } catch(e) {}\n\nreturn [{ json: {\n  action: trigger.action || '',\n  phone: trigger.phone || '',\n  clinic_id: trigger.clinic_id || '',\n  service: p.service || '',\n  professional_id: p.professional_id || '',\n  preferred_date: p.preferred_date || '',\n  preferred_time: p.preferred_time || '09:00',\n  appointment_id: p.appointment_id || '',\n  first_name: p.first_name || '',\n  last_name: p.last_name || '',\n  email: p.email || '',\n  date: p.date || '',\n  duration: p.duration || 30,\n  response: p.response || ''\n}}];"
+        "jsCode": "const trigger = $input.first().json;\nlet p = {};\ntry { p = typeof trigger.params === 'string' ? JSON.parse(trigger.params) : (trigger.params || {}); } catch(e) {}\n\nreturn [{ json: {\n  action: trigger.action || '',\n  phone: trigger.phone || '',\n  clinic_id: trigger.clinic_id || '',\n  service: p.service || '',\n  service_id: p.service_id ? parseInt(p.service_id) : null,\n  professional_id: p.professional_id ? parseInt(p.professional_id) : null,\n  professional_name: p.professional_name || p.professional || '',\n  preferred_date: p.preferred_date || '',\n  preferred_time: p.preferred_time || '09:00',\n  appointment_id: p.appointment_id || '',\n  first_name: p.first_name || '',\n  last_name: p.last_name || '',\n  email: p.email || '',\n  date: p.date || '',\n  duration: p.duration || 30,\n  response: p.response || ''\n}}];"
       },
       "id": "normalizar-inputs",
       "name": "Normalizar Inputs",
@@ -1047,7 +1040,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json;\nconst items = raw.results || (Array.isArray(raw) ? raw : []);\nif (!items.length) return [{ json: { output: 'No hay profesionales disponibles.', success: true } }];\nconst lines = items.map(p => {\n  const name = p.full_name || ((p.user && (p.user.first_name + ' ' + p.user.last_name)) || 'Sin nombre');\n  const tipo = p.specialty || p.professional_type || '';\n  const services = (p.services || []).map(s => s.name || s).join(', ');\n  const svcStr = services ? ` → Servicios: ${services}` : '';\n  return `• [ID:${p.id}] ${name}${tipo ? ' (' + tipo + ')' : ''}${svcStr}`;\n});\nreturn [{ json: { output: 'Profesionales:\\n' + lines.join('\\n'), success: true } }];"
+        "jsCode": "const raw = $input.first().json;\nconst items = raw.results || (Array.isArray(raw) ? raw : []);\nif (!items.length) return [{ json: { output: 'No hay profesionales disponibles.', success: true } }];\nconst lines = items.map(p => {\n  const info = p.user_info || {};\n  const name = info.full_name || (info.first_name && info.last_name ? info.first_name + ' ' + info.last_name : 'Sin nombre');\n  const tipo = p.professional_type_display || p.professional_type || '';\n  const services = (p.services_detail || []).map(s => s.name + ' (' + s.duration_minutes + 'min, ' + s.price + '€)').join(', ');\n  const svcStr = services ? ' → ' + services : '';\n  return '• [ID:' + p.id + '] ' + name + (tipo ? ' (' + tipo + ')' : '') + svcStr;\n});\nreturn [{ json: { output: 'Profesionales:\\n' + lines.join('\\n'), success: true } }];"
       },
       "id": "h-formatear-profesionales",
       "name": "H - Formatear Profesionales",
@@ -1096,7 +1089,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json;\nconst slots = raw.slots || raw.available_slots || (Array.isArray(raw) ? raw : []);\nif (!slots.length) return [{ json: { output: 'No hay slots disponibles para esa fecha.', success: true } }];\nconst limited = slots.slice(0, 12);\nconst lines = limited.map(s => {\n  const time = typeof s === 'string' ? s : (s.time || s.start_time || s.slot || '');\n  return `• ${time.substring(0, 5)}`;\n});\nconst extra = slots.length > 12 ? `\\n... y ${slots.length - 12} más.` : '';\nreturn [{ json: { output: 'Horarios disponibles:\\n' + lines.join('\\n') + extra, success: true } }];"
+        "jsCode": "const raw = $input.first().json;\nconst slots = raw.slots || raw.available_slots || (Array.isArray(raw) ? raw : []);\nif (!slots.length) return [{ json: { output: 'No hay horarios disponibles para esa fecha.', success: true } }];\nconst limited = slots.slice(0, 12);\nconst lines = limited.map(s => {\n  const raw_time = typeof s === 'string' ? s : (s.time || s.start_time || s.slot || '');\n  const timeStr = raw_time.includes('T') ? raw_time.split('T')[1].substring(0, 5) : raw_time.substring(0, 5);\n  return '• ' + timeStr;\n});\nconst extra = slots.length > 12 ? '\\n... y ' + (slots.length - 12) + ' más.' : '';\nconst fecha = raw.date || $('Normalizar Inputs').first().json.date || '';\nconst prof = raw.professional_name ? ' con ' + raw.professional_name : '';\nconst header = fecha ? 'Horarios disponibles' + prof + ' para el ' + fecha + ':' : 'Horarios disponibles' + prof + ':';\nreturn [{ json: { output: header + '\\n' + lines.join('\\n') + extra, success: true } }];"
       },
       "id": "i-formatear-slots",
       "name": "I - Formatear Slots",
@@ -1159,6 +1152,41 @@
         880,
         1856
       ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/professionals/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "clinic",
+              "value": "={{ $('Normalizar Inputs').first().json.clinic_id }}"
+            },
+            {
+              "name": "search",
+              "value": "={{ $('Normalizar Inputs').first().json.professional_name || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        992,
+        368
+      ],
+      "id": "f15ad084-38f2-427d-842c-6d70fa9c6a9c",
+      "name": "B - Buscar Profesional",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
+        }
+      }
     }
   ],
   "connections": {
@@ -1441,7 +1469,7 @@
       "main": [
         [
           {
-            "node": "B - Preparar Datos Cita",
+            "node": "B - Buscar Profesional",
             "type": "main",
             "index": 0
           }
@@ -1546,6 +1574,17 @@
           }
         ]
       ]
+    },
+    "B - Buscar Profesional": {
+      "main": [
+        [
+          {
+            "node": "B - Preparar Datos Cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -1558,9 +1597,9 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "cbbbac83-451b-4149-af53-ad8762c5f284",
-  "activeVersionId": "cbbbac83-451b-4149-af53-ad8762c5f284",
-  "versionCounter": 54,
+  "versionId": "9de13291-b876-4af7-83fc-73d3f2a3149f",
+  "activeVersionId": "9de13291-b876-4af7-83fc-73d3f2a3149f",
+  "versionCounter": 127,
   "triggerCount": 0,
   "shared": [
     {
@@ -1583,15 +1622,15 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-04-15T01:50:22.692Z",
-    "createdAt": "2026-04-15T01:50:22.692Z",
-    "versionId": "cbbbac83-451b-4149-af53-ad8762c5f284",
+    "updatedAt": "2026-04-15T18:58:33.624Z",
+    "createdAt": "2026-04-15T18:58:33.624Z",
+    "versionId": "9de13291-b876-4af7-83fc-73d3f2a3149f",
     "workflowId": "9uusM4595mjJOMCc",
     "nodes": [
       {
         "parameters": {
           "inputSource": "jsonExample",
-          "jsonExample": "{\n  \"action\": \"create\",\n  \"phone\": \"+34600000001\",\n  \"clinic_id\": \"clinic-test\",\n  \"params\": \"{\\\"service\\\":\\\"Consulta General\\\",\\\"preferred_date\\\":\\\"2026-04-16\\\",\\\"preferred_time\\\":\\\"10:00\\\"}\"\n}"
+          "jsonExample": "{\n  \"action\": \"create\",\n  \"phone\": \"+34600000001\",\n  \"clinic_id\": \"clinic-test\",\n  \"params\": \"{\\\"service_id\\\":1,\\\"professional_id\\\":2,\\\"preferred_date\\\":\\\"2026-04-16\\\",\\\"preferred_time\\\":\\\"10:00\\\"}\"\n}"
         },
         "id": "trigger-execute",
         "name": "Trigger - Execute Workflow",
@@ -1927,14 +1966,14 @@
       },
       {
         "parameters": {
-          "jsCode": "const norm = $('Normalizar Inputs').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + norm.phone);\n}\n\nconst patient = patients[0];\n\n// Buscar servicio por nombre con match parcial\nlet service_id = null;\ntry {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  const query = (norm.service || '').toLowerCase().trim();\n  \n  let match = null;\n  if (query) {\n    // Match exacto\n    match = servicios.find(s => s.name.toLowerCase() === query);\n    // Match parcial\n    if (!match) match = servicios.find(s => s.name.toLowerCase().includes(query));\n    // Match inverso\n    if (!match) match = servicios.find(s => query.includes(s.name.toLowerCase()));\n  }\n  // Si hay un único servicio, usarlo directamente\n  if (!match && servicios.length === 1) match = servicios[0];\n  \n  if (match) service_id = match.id;\n} catch (e) {}\n\nif (!service_id && norm.service) {\n  throw new Error('Servicio no encontrado: ' + norm.service);\n}\n\nconst date = norm.preferred_date || '';\nconst time = norm.preferred_time || '09:00';\nconst scheduledAt = date ? `${date}T${time}:00+00:00` : '';\n\nlet endAt = '';\nif (scheduledAt) {\n  const start = new Date(scheduledAt);\n  start.setHours(start.getHours() + 1);\n  endAt = start.toISOString().replace('.000Z', '+00:00');\n}\n\nconst professionalId = norm.professional_id && norm.professional_id !== '' ? parseInt(norm.professional_id) || norm.professional_id : null;\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  professional_id: professionalId,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: norm.phone\n}}];"
+          "jsCode": "const norm = $('Normalizar Inputs').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + norm.phone);\n}\n\nconst patient = patients[0];\n\n// Buscar servicio por nombre con match parcial\nlet service_id = norm.service_id || null;\nlet serviceDuration = 30;\n\nif (!service_id) {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  const query = (norm.service || '').toLowerCase().trim();\n\n  let match = null;\n  if (query) {\n    match = servicios.find(s => s.name.toLowerCase() === query);\n    if (!match) match = servicios.find(s => s.name.toLowerCase().includes(query));\n    if (!match) match = servicios.find(s => query.includes(s.name.toLowerCase()));\n  }\n  if (!match && servicios.length === 1) match = servicios[0];\n\n  if (match) {\n    service_id = match.id;\n    if (match.duration_minutes) serviceDuration = match.duration_minutes;\n  }\n}\n\nif (!service_id) {\n  throw new Error('Servicio no encontrado: ' + (norm.service || 'no especificado') + '. Usa action=list_services para ver los disponibles.');\n}\n\n// Resolver professional_id\nlet professional_id = norm.professional_id ? parseInt(norm.professional_id) : null;\n\nif (!professional_id) {\n  const profRaw = $('B - Buscar Profesional').first().json;\n  const profs = profRaw.results || (Array.isArray(profRaw) ? profRaw : []);\n\n  if (profs.length === 1) {\n    professional_id = profs[0].id;\n  } else if (profs.length > 1) {\n    const searchName = (norm.professional_name || '').toLowerCase().trim();\n    if (searchName) {\n      const match = profs.find(p => {\n        const info = p.user_info || {};\n        const fullName = (info.full_name || (info.first_name + ' ' + info.last_name) || '').toLowerCase();\n        return fullName.includes(searchName) || searchName.includes(fullName.split(' ')[0]);\n      });\n      professional_id = match ? match.id : null;\n    }\n  }\n}\n\nif (!professional_id) {\n  throw new Error('Profesional no encontrado: ' + (norm.professional_name || 'no especificado') + '. Usa action=list_professionals para ver los disponibles.');\n}\n\nconst date = norm.preferred_date || '';\nconst time = norm.preferred_time || '09:00';\n\nif (!date) {\n  throw new Error('Se requiere preferred_date para crear la cita.');\n}\n\n// Calcular offset UTC de Europe/Madrid para la fecha indicada (DST automatico)\nfunction getMadridOffsetHours(dateStr) {\n  const d = new Date(dateStr + 'T12:00:00Z');\n  const madridHour = parseInt(d.toLocaleString('en-US', {\n    timeZone: 'Europe/Madrid',\n    hour: 'numeric',\n    hour12: false\n  }));\n  let diff = madridHour - 12;\n  if (diff > 12) diff -= 24;\n  if (diff < -12) diff += 24;\n  return diff; // +1 en invierno (CET), +2 en verano (CEST)\n}\n\nconst offsetHours = getMadridOffsetHours(date);\nconst sign = offsetHours >= 0 ? '+' : '-';\nconst offsetStr = sign + String(Math.abs(offsetHours)).padStart(2, '0') + ':00';\n\n// scheduled_at con offset Madrid correcto\nconst scheduledAt = date + 'T' + time + ':00' + offsetStr;\n\n// end_at en UTC: hora local - offset + duracion\nconst [h, m] = time.split(':').map(Number);\nconst utcStart = new Date(Date.UTC(\n  parseInt(date.substring(0, 4)),\n  parseInt(date.substring(5, 7)) - 1,\n  parseInt(date.substring(8, 10)),\n  h - offsetHours,\n  m,\n  0\n));\nutcStart.setMinutes(utcStart.getMinutes() + serviceDuration);\nconst endAt = utcStart.toISOString();\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  professional_id: professional_id,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: norm.phone\n}}];"
         },
         "id": "b-preparar-datos-cita",
         "name": "B - Preparar Datos Cita",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1040,
+          1184,
           368
         ]
       },
@@ -1945,19 +1984,16 @@
           "authentication": "genericCredentialType",
           "genericAuthType": "httpHeaderAuth",
           "sendBody": true,
-          "bodyParameters": {
-            "parameters": []
-          },
-          "options": {},
           "specifyBody": "json",
-          "jsonBody": "={\n  \"clinic\": \"{{ $json.clinic_id }}\",\n  \"patient\": {{ $json.patient_id }},\n  \"service\": {{ $json.service_id }},\n  \"professional\": {{ $json.professional_id !== null && $json.professional_id !== '' ? $json.professional_id : null }},\n  \"scheduled_at\": \"{{ $json.scheduled_at }}\",\n  \"end_at\": \"{{ $json.end_at }}\",\n  \"status\": \"pending\"\n}"
+          "jsonBody": "={{ JSON.stringify({\n  clinic: $json.clinic_id,\n  patient: $json.patient_id,\n  service: $json.service_id,\n  professional: $json.professional_id || null,\n  scheduled_at: $json.scheduled_at,\n  end_at: $json.end_at,\n  status: 'pending'\n}) }}",
+          "options": {}
         },
         "id": "b-crear-cita",
         "name": "B - Crear Cita Django",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          1264,
+          1376,
           368
         ],
         "credentials": {
@@ -1977,7 +2013,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1520,
+          1568,
           368
         ]
       },
@@ -2420,16 +2456,12 @@
               }
             ]
           },
-          "sendBody": false,
-          "bodyParameters": {
-            "parameters": []
-          },
           "options": {}
         },
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          832,
+          784,
           368
         ],
         "id": "33965a71-ac9f-40ce-a44d-07cd4a1e92aa",
@@ -2526,7 +2558,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const trigger = $input.first().json;\nlet p = {};\ntry { p = typeof trigger.params === 'string' ? JSON.parse(trigger.params) : (trigger.params || {}); } catch(e) {}\n\nreturn [{ json: {\n  action: trigger.action || '',\n  phone: trigger.phone || '',\n  clinic_id: trigger.clinic_id || '',\n  service: p.service || '',\n  professional_id: p.professional_id || '',\n  preferred_date: p.preferred_date || '',\n  preferred_time: p.preferred_time || '09:00',\n  appointment_id: p.appointment_id || '',\n  first_name: p.first_name || '',\n  last_name: p.last_name || '',\n  email: p.email || '',\n  date: p.date || '',\n  duration: p.duration || 30,\n  response: p.response || ''\n}}];"
+          "jsCode": "const trigger = $input.first().json;\nlet p = {};\ntry { p = typeof trigger.params === 'string' ? JSON.parse(trigger.params) : (trigger.params || {}); } catch(e) {}\n\nreturn [{ json: {\n  action: trigger.action || '',\n  phone: trigger.phone || '',\n  clinic_id: trigger.clinic_id || '',\n  service: p.service || '',\n  service_id: p.service_id ? parseInt(p.service_id) : null,\n  professional_id: p.professional_id ? parseInt(p.professional_id) : null,\n  professional_name: p.professional_name || p.professional || '',\n  preferred_date: p.preferred_date || '',\n  preferred_time: p.preferred_time || '09:00',\n  appointment_id: p.appointment_id || '',\n  first_name: p.first_name || '',\n  last_name: p.last_name || '',\n  email: p.email || '',\n  date: p.date || '',\n  duration: p.duration || 30,\n  response: p.response || ''\n}}];"
         },
         "id": "normalizar-inputs",
         "name": "Normalizar Inputs",
@@ -2628,7 +2660,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const raw = $input.first().json;\nconst items = raw.results || (Array.isArray(raw) ? raw : []);\nif (!items.length) return [{ json: { output: 'No hay profesionales disponibles.', success: true } }];\nconst lines = items.map(p => {\n  const name = p.full_name || ((p.user && (p.user.first_name + ' ' + p.user.last_name)) || 'Sin nombre');\n  const tipo = p.specialty || p.professional_type || '';\n  const services = (p.services || []).map(s => s.name || s).join(', ');\n  const svcStr = services ? ` → Servicios: ${services}` : '';\n  return `• [ID:${p.id}] ${name}${tipo ? ' (' + tipo + ')' : ''}${svcStr}`;\n});\nreturn [{ json: { output: 'Profesionales:\\n' + lines.join('\\n'), success: true } }];"
+          "jsCode": "const raw = $input.first().json;\nconst items = raw.results || (Array.isArray(raw) ? raw : []);\nif (!items.length) return [{ json: { output: 'No hay profesionales disponibles.', success: true } }];\nconst lines = items.map(p => {\n  const info = p.user_info || {};\n  const name = info.full_name || (info.first_name && info.last_name ? info.first_name + ' ' + info.last_name : 'Sin nombre');\n  const tipo = p.professional_type_display || p.professional_type || '';\n  const services = (p.services_detail || []).map(s => s.name + ' (' + s.duration_minutes + 'min, ' + s.price + '€)').join(', ');\n  const svcStr = services ? ' → ' + services : '';\n  return '• [ID:' + p.id + '] ' + name + (tipo ? ' (' + tipo + ')' : '') + svcStr;\n});\nreturn [{ json: { output: 'Profesionales:\\n' + lines.join('\\n'), success: true } }];"
         },
         "id": "h-formatear-profesionales",
         "name": "H - Formatear Profesionales",
@@ -2677,7 +2709,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const raw = $input.first().json;\nconst slots = raw.slots || raw.available_slots || (Array.isArray(raw) ? raw : []);\nif (!slots.length) return [{ json: { output: 'No hay slots disponibles para esa fecha.', success: true } }];\nconst limited = slots.slice(0, 12);\nconst lines = limited.map(s => {\n  const time = typeof s === 'string' ? s : (s.time || s.start_time || s.slot || '');\n  return `• ${time.substring(0, 5)}`;\n});\nconst extra = slots.length > 12 ? `\\n... y ${slots.length - 12} más.` : '';\nreturn [{ json: { output: 'Horarios disponibles:\\n' + lines.join('\\n') + extra, success: true } }];"
+          "jsCode": "const raw = $input.first().json;\nconst slots = raw.slots || raw.available_slots || (Array.isArray(raw) ? raw : []);\nif (!slots.length) return [{ json: { output: 'No hay horarios disponibles para esa fecha.', success: true } }];\nconst limited = slots.slice(0, 12);\nconst lines = limited.map(s => {\n  const raw_time = typeof s === 'string' ? s : (s.time || s.start_time || s.slot || '');\n  const timeStr = raw_time.includes('T') ? raw_time.split('T')[1].substring(0, 5) : raw_time.substring(0, 5);\n  return '• ' + timeStr;\n});\nconst extra = slots.length > 12 ? '\\n... y ' + (slots.length - 12) + ' más.' : '';\nconst fecha = raw.date || $('Normalizar Inputs').first().json.date || '';\nconst prof = raw.professional_name ? ' con ' + raw.professional_name : '';\nconst header = fecha ? 'Horarios disponibles' + prof + ' para el ' + fecha + ':' : 'Horarios disponibles' + prof + ':';\nreturn [{ json: { output: header + '\\n' + lines.join('\\n') + extra, success: true } }];"
         },
         "id": "i-formatear-slots",
         "name": "I - Formatear Slots",
@@ -2740,6 +2772,41 @@
           880,
           1856
         ]
+      },
+      {
+        "parameters": {
+          "url": "={{ $env.DJANGO_API_URL }}/api/professionals/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "clinic",
+                "value": "={{ $('Normalizar Inputs').first().json.clinic_id }}"
+              },
+              {
+                "name": "search",
+                "value": "={{ $('Normalizar Inputs').first().json.professional_name || '' }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          992,
+          368
+        ],
+        "id": "f15ad084-38f2-427d-842c-6d70fa9c6a9c",
+        "name": "B - Buscar Profesional",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
+          }
+        }
       }
     ],
     "connections": {
@@ -3022,7 +3089,7 @@
         "main": [
           [
             {
-              "node": "B - Preparar Datos Cita",
+              "node": "B - Buscar Profesional",
               "type": "main",
               "index": 0
             }
@@ -3127,6 +3194,17 @@
             }
           ]
         ]
+      },
+      "B - Buscar Profesional": {
+        "main": [
+          [
+            {
+              "node": "B - Preparar Datos Cita",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "authors": "devs cool",
@@ -3135,18 +3213,18 @@
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-04-15T01:50:22.838Z",
-        "id": 136,
+        "createdAt": "2026-04-15T18:58:33.829Z",
+        "id": 172,
         "workflowId": "9uusM4595mjJOMCc",
-        "versionId": "cbbbac83-451b-4149-af53-ad8762c5f284",
+        "versionId": "9de13291-b876-4af7-83fc-73d3f2a3149f",
         "event": "deactivated",
         "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       },
       {
-        "createdAt": "2026-04-15T01:50:22.891Z",
-        "id": 137,
+        "createdAt": "2026-04-15T18:58:33.902Z",
+        "id": 173,
         "workflowId": "9uusM4595mjJOMCc",
-        "versionId": "cbbbac83-451b-4149-af53-ad8762c5f284",
+        "versionId": "9de13291-b876-4af7-83fc-73d3f2a3149f",
         "event": "activated",
         "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       }
