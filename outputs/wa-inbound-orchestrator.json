@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-04-11T02:59:59.818Z",
+  "updatedAt": "2026-04-15T01:39:05.634Z",
   "createdAt": "2026-04-09T19:03:15.824Z",
   "id": "zG25BeZcZydZwM9f",
   "name": "WA-Inbound-Orchestrator",
@@ -26,14 +26,14 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $json.body || $json;\nconst entry = body.entry;\n\nif (!entry || !entry[0] || !entry[0].changes || !entry[0].changes[0] || !entry[0].changes[0].value.messages) {\n  return [{ json: { skip: true } }];\n}\n\nconst value = entry[0].changes[0].value;\nconst msg = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : {};\nconst phoneNumberId = value.metadata ? value.metadata.phone_number_id : '';\n\nreturn [{ json: {\n  phone: msg.from,\n  message: msg.text ? msg.text.body : '',\n  message_id: msg.id,\n  timestamp: msg.timestamp,\n  message_type: msg.type,\n  is_text: msg.type === 'text',\n  contact_name: contact.profile ? contact.profile.name : '',\n  phone_number_id: phoneNumberId,\n  clinic_id: 'clinic-test'\n}}];"
+        "jsCode": "const body = $json.body || $json;\n\n// ── Formato WaAPI (web.whatsapp-api.com) ──────────────────────────\nif (body.event === 'message' && body.data && body.data.message) {\n  const msg = body.data.message;\n  \n  // WaAPI usa @lid para cuentas linked-device; extraemos solo el número\n  const rawFrom = msg.from || '';\n  const phone = rawFrom.replace(/@lid$|@c\\.us$/, '');\n  \n  return [{ json: {\n    phone: phone,\n    message: msg.body || '',\n    message_id: msg.id ? msg.id.id : '',\n    timestamp: String(msg.t || msg.timestamp || ''),\n    message_type: msg.type === 'chat' ? 'text' : msg.type,\n    is_text: msg.type === 'chat',\n    contact_name: msg._data ? msg._data.notifyName : '',\n    phone_number_id: body.instanceId || '',\n    clinic_id: 'clinic-test'\n  }}];\n}\n\n// ── Formato Meta WhatsApp Cloud API ──────────────────────────────\nconst entry = body.entry;\nif (!entry || !entry[0] || !entry[0].changes || !entry[0].changes[0] || !entry[0].changes[0].value.messages) {\n  return [{ json: { skip: true } }];\n}\n\nconst value = entry[0].changes[0].value;\nconst msg = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : {};\nconst phoneNumberId = value.metadata ? value.metadata.phone_number_id : '';\n\nreturn [{ json: {\n  phone: msg.from,\n  message: msg.text ? msg.text.body : '',\n  message_id: msg.id,\n  timestamp: msg.timestamp,\n  message_type: msg.type,\n  is_text: msg.type === 'text',\n  contact_name: contact.profile ? contact.profile.name : '',\n  phone_number_id: phoneNumberId,\n  clinic_id: 'clinic-test'\n}}];"
       },
       "id": "53967e2a-5633-4bea-ba6f-687ad20ac9bf",
       "name": "Normalizar Mensaje",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        464,
+        480,
         400
       ]
     },
@@ -201,7 +201,7 @@
         "promptType": "define",
         "text": "={{ $json.chatInput }}",
         "options": {
-          "systemMessage": "=Eres un asistente de IA para clinicas medicas que gestiona citas por WhatsApp. Eres amable, profesional y conciso. Siempre respondes en el idioma del usuario.\n\nUSUARIO: {{ $json.phone }} ({{ $json.contact_name }})\nCLINICA ID: {{ $json.clinic_id }}\nCONTEXTO DE SESION: {{ $json.session_data }}\nFECHA Y HORA ACTUAL: {{ $now.toISO() }}\nES PACIENTE NUEVO: {{ $json.is_new_patient }}\nNOMBRE PACIENTE: {{ $json.patient_name }}\nES PRIMER MENSAJE: {{ $json.is_first_message }}\n\n{{ $json.is_reminder_response ? 'ATENCION: El usuario responde a un RECORDATORIO. Cita pendiente: ID=' + $json.pending_appointment_id + ', Servicio=' + $json.pending_appointment_service + ', Fecha=' + $json.pending_appointment_datetime + '. Usa tool_confirm_reminder_response.' : '' }}\n\nREGLA ABSOLUTA - DATOS EN TIEMPO REAL:\n- NUNCA uses la memoria del chat para responder sobre citas, disponibilidad, servicios o precios\n- SIEMPRE llama a la tool correspondiente en CADA mensaje, aunque ya hayas consultado antes\n- La informacion de citas cambia constantemente — lo que estaba en el historial puede estar desactualizado\n\nINSTRUCCIONES PARA PRIMER MENSAJE (cuando ES PRIMER MENSAJE es true):\n- Si ES PACIENTE NUEVO es false: OBLIGATORIO inicia tu respuesta saludando al paciente por su nombre: \"¡Hola, [NOMBRE PACIENTE]! ¿En que puedo ayudarte hoy?\" Luego atiende lo que haya pedido usando las herramientas.\n- Si ES PACIENTE NUEVO es true: NO saludes por nombre. Presenta la clinica y pide los datos de registro: \"¡Hola! Soy el asistente de la clinica. Para poder ayudarte necesito registrarte. ¿Puedes indicarme tu nombre y apellidos, y correo electronico?\"\n\nINSTRUCCIONES GENERALES:\n- Si el usuario responde a un recordatorio, usa tool_confirm_reminder_response\n- Si quiere VER o CONSULTAR sus citas, usa tool_check_and_book_appointment con action=list_upcoming\n- Si quiere AGENDAR una nueva cita, usa tool_check_and_book_appointment con action=create\n- Si quiere CANCELAR una cita, usa tool_check_and_book_appointment con action=cancel\n- Si quiere REPROGRAMAR una cita, usa tool_check_and_book_appointment con action=reschedule\n- Si pregunta sobre servicios, precios, horarios o info de la clinica, usa tool_get_clinic_information\n- Nunca inventes disponibilidad, precios ni horarios\n- Siempre confirma los datos antes de crear una cita\n- Se conciso (maximo 300 caracteres para WhatsApp)\n- Pasa siempre phone={{ $json.phone }} y clinic_id={{ $json.clinic_id }} a las herramientas\n\nINSTRUCCIONES PARA PACIENTE NUEVO (cuando ES PACIENTE NUEVO es true):\n- Tu UNICA tarea es recoger nombre, apellidos y correo electronico del usuario\n- El mensaje de bienvenida ya le ha pedido esos datos, asi que el usuario probablemente ya los ha enviado en este mensaje\n- Extrae first_name, last_name y email del mensaje del usuario\n- Si faltan datos, pidelos de forma amable indicando exactamente cuales faltan\n- Cuando tengas los tres datos, NO llames a la tool todavia. Primero muestra un resumen al usuario y pide confirmacion\n- Solo cuando el usuario confirme con SI, llama a tool_check_and_book_appointment con action=register_patient, first_name, last_name, email, phone y clinic_id\n- Si el usuario responde NO, pregunta que dato quiere corregir y vuelve a mostrar el resumen antes de registrar\n- Hasta que el paciente no este registrado no gestiones citas ni respondas preguntas de servicios\n\nINSTRUCCIONES PARA AGENDAR CITAS:\n- Si el usuario no especifica fecha, dice cuanto antes, esta semana, lo antes posible o similar, usa SIEMPRE como preferred_date la fecha de MANANA en formato YYYY-MM-DD\n- La fecha de manana se calcula desde FECHA Y HORA ACTUAL que tienes en el contexto\n- Nunca dejes preferred_date vacio al llamar check_availability o create",
+          "systemMessage": "=Eres un asistente de IA para clinicas medicas que gestiona citas por WhatsApp. Eres amable, profesional y conciso. Siempre respondes en el idioma del usuario.\n\nUSUARIO: {{ $json.phone }} ({{ $json.contact_name }})\nCLINICA ID: {{ $json.clinic_id }}\nCONTEXTO DE SESION: {{ $json.session_data }}\nFECHA Y HORA ACTUAL: {{ $now.toISO() }}\nES PACIENTE NUEVO: {{ $json.is_new_patient }}\nNOMBRE PACIENTE: {{ $json.patient_name }}\nES PRIMER MENSAJE: {{ $json.is_first_message }}\n\n{{ $json.is_reminder_response ? 'ATENCION: El usuario responde a un RECORDATORIO. Cita pendiente: ID=' + $json.pending_appointment_id + ', Servicio=' + $json.pending_appointment_service + ', Fecha=' + $json.pending_appointment_datetime + '. Usa tool_clinica con action=confirm_from_reminder.' : '' }}\n\nREGLA ABSOLUTA - REPARTO DE HERRAMIENTAS:\n\ntool_clinica → TODO lo que tenga que ver con datos reales de la clinica:\n- Ver citas del paciente → action=list_upcoming params=\"{}\"\n- Agendar cita → action=create params={\"service\":\"nombre\",\"preferred_date\":\"YYYY-MM-DD\",\"preferred_time\":\"HH:MM\"}\n- Cancelar cita → action=cancel params={\"appointment_id\":\"uuid\"}\n- Reprogramar → action=reschedule params={\"appointment_id\":\"uuid\",\"preferred_date\":\"YYYY-MM-DD\"}\n- Ver disponibilidad de un profesional → action=get_professional_slots params={\"professional_id\":\"id\",\"date\":\"YYYY-MM-DD\",\"duration\":30}\n- Servicios con precios y duraciones → action=list_services params=\"{}\"\n- Profesionales de la clinica → action=list_professionals params=\"{}\"\n- Agenda de un profesional → action=get_appointments_by_professional params={\"professional_id\":\"id\"}\n- Respuesta a recordatorio → action=confirm_from_reminder params={\"appointment_id\":\"uuid\",\"response\":\"confirm|cancel\"}\n- Registrar paciente → action=register_patient params={\"first_name\":\"X\",\"last_name\":\"Y\",\"email\":\"Z\"}\n\ntool_get_clinic_information → SOLO para info estatica que no esta en base de datos:\n- Direccion fisica / como llegar\n- Telefono de contacto directo\n- Formas de pago aceptadas\n- Aparcamiento o accesibilidad\n- Politicas generales (cancelacion, privacidad)\nNUNCA usar para servicios, precios, profesionales, citas o disponibilidad.\n\nREGLA DE DATOS EN TIEMPO REAL:\n- NUNCA uses la memoria del chat para responder sobre citas, disponibilidad, servicios o precios\n- SIEMPRE llama a tool_clinica en cada mensaje que requiera datos reales de la clinica\n\nINSTRUCCIONES PARA PRIMER MENSAJE:\n- Paciente conocido (ES PACIENTE NUEVO=false): saluda por nombre y atiende lo pedido\n- Paciente nuevo (ES PACIENTE NUEVO=true): presenta la clinica, pide nombre, apellidos y correo\n\nINSTRUCCIONES PARA PACIENTE NUEVO:\n- Tu UNICA tarea es recoger nombre, apellidos y correo\n- Muestra resumen y pide confirmacion antes de llamar la tool\n- Solo cuando confirme: tool_clinica action=register_patient\n- Hasta que este registrado no gestiones citas\n\nINSTRUCCIONES PARA AGENDAR:\n- Si el usuario quiere cita con profesional especifico: primero list_professionals para obtener professional_id, luego get_professional_slots para ver disponibilidad, luego create\n- Si no especifica fecha, usa SIEMPRE manana (calcula desde FECHA Y HORA ACTUAL)\n- Nunca inventes disponibilidad ni precios\n- Confirma datos antes de crear la cita\n- Se conciso (maximo 300 caracteres)\n- Pasa siempre phone={{ $json.phone }} y clinic_id={{ $json.clinic_id }}",
           "maxIterations": 10
         }
       },
@@ -211,7 +211,7 @@
       "typeVersion": 3.1,
       "position": [
         2544,
-        352
+        320
       ]
     },
     {
@@ -244,7 +244,7 @@
     {
       "parameters": {
         "name": "tool_get_clinic_information",
-        "description": "Busca informacion de la clinica: servicios, precios, horarios, FAQ, ubicacion, politicas. Usar cuando el usuario pregunta sobre la clinica.",
+        "description": "SOLO para preguntas estaticas: direccion fisica, como llegar, telefono de contacto, formas de pago, aparcamiento, accesibilidad y politicas generales. NO usar para: servicios con precios (tool_clinica action=list_services), profesionales (tool_clinica action=list_professionals), disponibilidad (tool_clinica action=get_professional_slots), ni citas (tool_clinica). Solo info estatica que no esta en la base de datos.",
         "workflowId": {
           "__rl": true,
           "value": "YJFyPtkcDPM4XXXB",
@@ -287,7 +287,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2,
       "position": [
-        2592,
+        2624,
         -128
       ]
     },
@@ -526,7 +526,8 @@
     },
     {
       "parameters": {
-        "description": "Gestiona citas y registro de pacientes. Acciones disponibles: check_availability, create, cancel, reschedule, list_upcoming, register_patient. Pasa siempre phone y clinic_id.",
+        "name": "tool_clinica",
+        "description": "Herramienta única para gestionar citas, consultar disponibilidad, registrar pacientes, y obtener información de servicios y profesionales. Usar para CUALQUIER acción relacionada con citas o la clínica. Acciones: check_availability, create, cancel, reschedule, list_upcoming, register_patient, confirm_from_reminder, list_services, list_professionals, get_professional_slots, get_appointments_by_professional. Siempre pasar action, phone, clinic_id. El campo params es un JSON string con datos opcionales según la acción.",
         "workflowId": {
           "__rl": true,
           "mode": "id",
@@ -534,123 +535,53 @@
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
-          "value": {
-            "action": "={{ $fromAI('action', 'Accion: check_availability, create, cancel, reschedule, list_upcoming, register_patient', 'string') }}",
-            "phone": "={{ $fromAI('phone', 'Telefono del paciente', 'string') }}",
-            "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica', 'string') }}",
-            "service": "={{ $fromAI('service', 'Servicio solicitado, dejar vacio si no aplica', 'string', '') }}",
-            "preferred_date": "={{ $fromAI('preferred_date', 'Fecha preferida YYYY-MM-DD, dejar vacio si no aplica', 'string', '') }}",
-            "preferred_time": "={{ $fromAI('preferred_time', 'Hora preferida HH:MM, dejar vacio si no aplica', 'string', '') }}",
-            "appointment_id": "={{ $fromAI('appointment_id', 'UUID de la cita para cancel/reschedule, dejar vacio si no aplica', 'string', '') }}",
-            "first_name": "={{ $fromAI('first_name', 'Nombre del paciente para registro, dejar vacio si no aplica', 'string', '') }}",
-            "last_name": "={{ $fromAI('last_name', 'Apellidos del paciente para registro, dejar vacio si no aplica', 'string', '') }}",
-            "email": "={{ $fromAI('email', 'Email del paciente para registro, dejar vacio si no aplica', 'string', '') }}"
-          },
           "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false,
+          "value": {
+            "action": "={{ $fromAI('action', 'Accion requerida: check_availability | create | cancel | reschedule | list_upcoming | register_patient | confirm_from_reminder | list_services | list_professionals | get_professional_slots | get_appointments_by_professional', 'string') }}",
+            "phone": "={{ $fromAI('phone', 'Telefono del paciente en formato internacional ej +34612345678', 'string') }}",
+            "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica, siempre usar clinic-test', 'string') }}",
+            "params": "={{ $fromAI('params', 'JSON string con parametros opcionales segun la accion. Ejemplos: para create usar {\"service\":\"Consulta\",\"preferred_date\":\"2026-04-20\",\"preferred_time\":\"10:00\",\"first_name\":\"Juan\",\"last_name\":\"Garcia\",\"email\":\"juan@mail.com\"}. Para cancel usar {\"appointment_id\":\"uuid\"}. Para get_professional_slots usar {\"professional_id\":\"1\",\"date\":\"2026-04-20\",\"duration\":30}. Para check_availability usar {\"service\":\"Consulta\",\"preferred_date\":\"2026-04-20\"}. Si no hay parametros opcionales pasar {}', 'string') }}"
+          },
           "schema": [
             {
               "id": "action",
-              "displayName": "action",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
               "type": "string",
-              "removed": false
+              "display": true,
+              "required": true,
+              "displayName": "action",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
             },
             {
               "id": "phone",
-              "displayName": "phone",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
               "type": "string",
-              "removed": false
+              "display": true,
+              "required": true,
+              "displayName": "phone",
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
             },
             {
               "id": "clinic_id",
+              "type": "string",
+              "display": true,
+              "required": true,
               "displayName": "clinic_id",
-              "required": false,
               "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "canBeUsedToMatch": true
             },
             {
-              "id": "service",
-              "displayName": "service",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
+              "id": "params",
               "type": "string",
-              "removed": false
-            },
-            {
-              "id": "preferred_date",
-              "displayName": "preferred_date",
-              "required": false,
-              "defaultMatch": false,
               "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "preferred_time",
-              "displayName": "preferred_time",
-              "required": false,
+              "required": true,
+              "displayName": "params",
               "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "appointment_id",
-              "displayName": "appointment_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "first_name",
-              "displayName": "first_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "last_name",
-              "displayName": "last_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            },
-            {
-              "id": "email",
-              "displayName": "email",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "canBeUsedToMatch": true
             }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
+          ]
         }
       },
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
@@ -717,14 +648,6 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "guardar-sesion-post-ia",
-      "name": "Guardar Sesion Post-IA",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        3150,
-        560
-      ],
       "parameters": {
         "method": "PATCH",
         "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/{{ $('Preparar Contexto Agente').first().json.session_id }}/",
@@ -735,6 +658,14 @@
         "jsonBody": "={\n  \"session_data\": {{ JSON.stringify({ last_message: $('Preparar Contexto Agente').first().json.chatInput, last_response: ($('Agente IA Clinica').first().json.output || '').substring(0, 500) }) }},\n  \"last_interaction\": \"{{ $now.toISO() }}\"\n}",
         "options": {}
       },
+      "id": "guardar-sesion-post-ia",
+      "name": "Guardar Sesion Post-IA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3152,
+        560
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "4582aNhH2U92BzV4",
@@ -744,46 +675,69 @@
       "continueOnFail": true
     },
     {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://waapi.app/api/v1/instances/{{ $('Preparar Contexto Agente').first().json.phone_number_id }}/client/action/send-message",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chatId",
+              "value": "34644572083@c.us"
+            },
+            {
+              "name": "message",
+              "value": "=={{ $('Agente IA Clinica').first().json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
       "id": "enviar-msg-whatsapp",
       "name": "Enviar Mensaje WhatsApp",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3150,
-        352
+        3200,
+        224
       ],
-      "parameters": {
-        "method": "POST",
-        "url": "=https://graph.facebook.com/v18.0/{{ $('Preparar Contexto Agente').first().json.phone_number_id }}/messages",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.to }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"{{ $json.message }}\" }\n}",
-        "options": {}
-      },
       "credentials": {
         "httpHeaderAuth": {
-          "id": "4582aNhH2U92BzV4",
-          "name": "Django Auth"
+          "id": "zh53olyJG7CS8Klu",
+          "name": "Wapi Auth"
         }
       },
       "continueOnFail": true
     },
     {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $input.first().json }}",
+        "options": {}
+      },
       "id": "d0fd8445-ee46-46c2-a27b-34382405059c",
       "name": "Responder a Webhook Postman",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        3350,
-        352
-      ],
+        3424,
+        368
+      ]
+    },
+    {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ $input.first().json }}",
-        "options": {}
-      }
+        "jsCode": "const body = $json.body || $json;\nconst entry = body.entry;\n\nif (!entry || !entry[0] || !entry[0].changes || !entry[0].changes[0] || !entry[0].changes[0].value.messages) {\n  return [{ json: { skip: true } }];\n}\n\nconst value = entry[0].changes[0].value;\nconst msg = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : {};\nconst phoneNumberId = value.metadata ? value.metadata.phone_number_id : '';\n\nreturn [{ json: {\n  phone: msg.from,\n  message: msg.text ? msg.text.body : '',\n  message_id: msg.id,\n  timestamp: msg.timestamp,\n  message_type: msg.type,\n  is_text: msg.type === 'text',\n  contact_name: contact.profile ? contact.profile.name : '',\n  phone_number_id: phoneNumberId,\n  clinic_id: 'clinic-test'\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        240
+      ],
+      "id": "3d65d3bd-d2e8-4e4c-adc4-9e757a07cb4b",
+      "name": "antiguo codigo normalize"
     }
   ],
   "connections": {
@@ -964,7 +918,7 @@
             "index": 0
           },
           {
-            "node": "Enviar Mensaje WhatsApp",
+            "node": "Responder a Webhook Postman",
             "type": "main",
             "index": 0
           }
@@ -1017,13 +971,17 @@
     },
     "Enviar Mensaje WhatsApp": {
       "main": [
-        [
-          {
-            "node": "Responder a Webhook Postman",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
+      ]
+    },
+    "Responder a Webhook Postman": {
+      "main": [
+        []
+      ]
+    },
+    "antiguo codigo normalize": {
+      "main": [
+        []
       ]
     }
   },
@@ -1039,9 +997,9 @@
     "templateCredsSetupCompleted": true
   },
   "pinData": {},
-  "versionId": "8cc9b634-2d09-4566-a8c5-8d472293092b",
-  "activeVersionId": "8cc9b634-2d09-4566-a8c5-8d472293092b",
-  "versionCounter": 96,
+  "versionId": "b105da26-27f4-4614-8819-3be99c77cc80",
+  "activeVersionId": "b105da26-27f4-4614-8819-3be99c77cc80",
+  "versionCounter": 200,
   "triggerCount": 1,
   "shared": [
     {
@@ -1064,9 +1022,9 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-04-11T02:59:59.823Z",
-    "createdAt": "2026-04-11T02:59:59.823Z",
-    "versionId": "8cc9b634-2d09-4566-a8c5-8d472293092b",
+    "updatedAt": "2026-04-15T01:39:05.638Z",
+    "createdAt": "2026-04-15T01:39:05.638Z",
+    "versionId": "b105da26-27f4-4614-8819-3be99c77cc80",
     "workflowId": "zG25BeZcZydZwM9f",
     "nodes": [
       {
@@ -1088,14 +1046,14 @@
       },
       {
         "parameters": {
-          "jsCode": "const body = $json.body || $json;\nconst entry = body.entry;\n\nif (!entry || !entry[0] || !entry[0].changes || !entry[0].changes[0] || !entry[0].changes[0].value.messages) {\n  return [{ json: { skip: true } }];\n}\n\nconst value = entry[0].changes[0].value;\nconst msg = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : {};\nconst phoneNumberId = value.metadata ? value.metadata.phone_number_id : '';\n\nreturn [{ json: {\n  phone: msg.from,\n  message: msg.text ? msg.text.body : '',\n  message_id: msg.id,\n  timestamp: msg.timestamp,\n  message_type: msg.type,\n  is_text: msg.type === 'text',\n  contact_name: contact.profile ? contact.profile.name : '',\n  phone_number_id: phoneNumberId,\n  clinic_id: 'clinic-test'\n}}];"
+          "jsCode": "const body = $json.body || $json;\n\n// ── Formato WaAPI (web.whatsapp-api.com) ──────────────────────────\nif (body.event === 'message' && body.data && body.data.message) {\n  const msg = body.data.message;\n  \n  // WaAPI usa @lid para cuentas linked-device; extraemos solo el número\n  const rawFrom = msg.from || '';\n  const phone = rawFrom.replace(/@lid$|@c\\.us$/, '');\n  \n  return [{ json: {\n    phone: phone,\n    message: msg.body || '',\n    message_id: msg.id ? msg.id.id : '',\n    timestamp: String(msg.t || msg.timestamp || ''),\n    message_type: msg.type === 'chat' ? 'text' : msg.type,\n    is_text: msg.type === 'chat',\n    contact_name: msg._data ? msg._data.notifyName : '',\n    phone_number_id: body.instanceId || '',\n    clinic_id: 'clinic-test'\n  }}];\n}\n\n// ── Formato Meta WhatsApp Cloud API ──────────────────────────────\nconst entry = body.entry;\nif (!entry || !entry[0] || !entry[0].changes || !entry[0].changes[0] || !entry[0].changes[0].value.messages) {\n  return [{ json: { skip: true } }];\n}\n\nconst value = entry[0].changes[0].value;\nconst msg = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : {};\nconst phoneNumberId = value.metadata ? value.metadata.phone_number_id : '';\n\nreturn [{ json: {\n  phone: msg.from,\n  message: msg.text ? msg.text.body : '',\n  message_id: msg.id,\n  timestamp: msg.timestamp,\n  message_type: msg.type,\n  is_text: msg.type === 'text',\n  contact_name: contact.profile ? contact.profile.name : '',\n  phone_number_id: phoneNumberId,\n  clinic_id: 'clinic-test'\n}}];"
         },
         "id": "53967e2a-5633-4bea-ba6f-687ad20ac9bf",
         "name": "Normalizar Mensaje",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          464,
+          480,
           400
         ]
       },
@@ -1263,7 +1221,7 @@
           "promptType": "define",
           "text": "={{ $json.chatInput }}",
           "options": {
-            "systemMessage": "=Eres un asistente de IA para clinicas medicas que gestiona citas por WhatsApp. Eres amable, profesional y conciso. Siempre respondes en el idioma del usuario.\n\nUSUARIO: {{ $json.phone }} ({{ $json.contact_name }})\nCLINICA ID: {{ $json.clinic_id }}\nCONTEXTO DE SESION: {{ $json.session_data }}\nFECHA Y HORA ACTUAL: {{ $now.toISO() }}\nES PACIENTE NUEVO: {{ $json.is_new_patient }}\nNOMBRE PACIENTE: {{ $json.patient_name }}\nES PRIMER MENSAJE: {{ $json.is_first_message }}\n\n{{ $json.is_reminder_response ? 'ATENCION: El usuario responde a un RECORDATORIO. Cita pendiente: ID=' + $json.pending_appointment_id + ', Servicio=' + $json.pending_appointment_service + ', Fecha=' + $json.pending_appointment_datetime + '. Usa tool_confirm_reminder_response.' : '' }}\n\nREGLA ABSOLUTA - DATOS EN TIEMPO REAL:\n- NUNCA uses la memoria del chat para responder sobre citas, disponibilidad, servicios o precios\n- SIEMPRE llama a la tool correspondiente en CADA mensaje, aunque ya hayas consultado antes\n- La informacion de citas cambia constantemente — lo que estaba en el historial puede estar desactualizado\n\nINSTRUCCIONES PARA PRIMER MENSAJE (cuando ES PRIMER MENSAJE es true):\n- Si ES PACIENTE NUEVO es false: OBLIGATORIO inicia tu respuesta saludando al paciente por su nombre: \"¡Hola, [NOMBRE PACIENTE]! ¿En que puedo ayudarte hoy?\" Luego atiende lo que haya pedido usando las herramientas.\n- Si ES PACIENTE NUEVO es true: NO saludes por nombre. Presenta la clinica y pide los datos de registro: \"¡Hola! Soy el asistente de la clinica. Para poder ayudarte necesito registrarte. ¿Puedes indicarme tu nombre y apellidos, y correo electronico?\"\n\nINSTRUCCIONES GENERALES:\n- Si el usuario responde a un recordatorio, usa tool_confirm_reminder_response\n- Si quiere VER o CONSULTAR sus citas, usa tool_check_and_book_appointment con action=list_upcoming\n- Si quiere AGENDAR una nueva cita, usa tool_check_and_book_appointment con action=create\n- Si quiere CANCELAR una cita, usa tool_check_and_book_appointment con action=cancel\n- Si quiere REPROGRAMAR una cita, usa tool_check_and_book_appointment con action=reschedule\n- Si pregunta sobre servicios, precios, horarios o info de la clinica, usa tool_get_clinic_information\n- Nunca inventes disponibilidad, precios ni horarios\n- Siempre confirma los datos antes de crear una cita\n- Se conciso (maximo 300 caracteres para WhatsApp)\n- Pasa siempre phone={{ $json.phone }} y clinic_id={{ $json.clinic_id }} a las herramientas\n\nINSTRUCCIONES PARA PACIENTE NUEVO (cuando ES PACIENTE NUEVO es true):\n- Tu UNICA tarea es recoger nombre, apellidos y correo electronico del usuario\n- El mensaje de bienvenida ya le ha pedido esos datos, asi que el usuario probablemente ya los ha enviado en este mensaje\n- Extrae first_name, last_name y email del mensaje del usuario\n- Si faltan datos, pidelos de forma amable indicando exactamente cuales faltan\n- Cuando tengas los tres datos, NO llames a la tool todavia. Primero muestra un resumen al usuario y pide confirmacion\n- Solo cuando el usuario confirme con SI, llama a tool_check_and_book_appointment con action=register_patient, first_name, last_name, email, phone y clinic_id\n- Si el usuario responde NO, pregunta que dato quiere corregir y vuelve a mostrar el resumen antes de registrar\n- Hasta que el paciente no este registrado no gestiones citas ni respondas preguntas de servicios\n\nINSTRUCCIONES PARA AGENDAR CITAS:\n- Si el usuario no especifica fecha, dice cuanto antes, esta semana, lo antes posible o similar, usa SIEMPRE como preferred_date la fecha de MANANA en formato YYYY-MM-DD\n- La fecha de manana se calcula desde FECHA Y HORA ACTUAL que tienes en el contexto\n- Nunca dejes preferred_date vacio al llamar check_availability o create",
+            "systemMessage": "=Eres un asistente de IA para clinicas medicas que gestiona citas por WhatsApp. Eres amable, profesional y conciso. Siempre respondes en el idioma del usuario.\n\nUSUARIO: {{ $json.phone }} ({{ $json.contact_name }})\nCLINICA ID: {{ $json.clinic_id }}\nCONTEXTO DE SESION: {{ $json.session_data }}\nFECHA Y HORA ACTUAL: {{ $now.toISO() }}\nES PACIENTE NUEVO: {{ $json.is_new_patient }}\nNOMBRE PACIENTE: {{ $json.patient_name }}\nES PRIMER MENSAJE: {{ $json.is_first_message }}\n\n{{ $json.is_reminder_response ? 'ATENCION: El usuario responde a un RECORDATORIO. Cita pendiente: ID=' + $json.pending_appointment_id + ', Servicio=' + $json.pending_appointment_service + ', Fecha=' + $json.pending_appointment_datetime + '. Usa tool_clinica con action=confirm_from_reminder.' : '' }}\n\nREGLA ABSOLUTA - REPARTO DE HERRAMIENTAS:\n\ntool_clinica → TODO lo que tenga que ver con datos reales de la clinica:\n- Ver citas del paciente → action=list_upcoming params=\"{}\"\n- Agendar cita → action=create params={\"service\":\"nombre\",\"preferred_date\":\"YYYY-MM-DD\",\"preferred_time\":\"HH:MM\"}\n- Cancelar cita → action=cancel params={\"appointment_id\":\"uuid\"}\n- Reprogramar → action=reschedule params={\"appointment_id\":\"uuid\",\"preferred_date\":\"YYYY-MM-DD\"}\n- Ver disponibilidad de un profesional → action=get_professional_slots params={\"professional_id\":\"id\",\"date\":\"YYYY-MM-DD\",\"duration\":30}\n- Servicios con precios y duraciones → action=list_services params=\"{}\"\n- Profesionales de la clinica → action=list_professionals params=\"{}\"\n- Agenda de un profesional → action=get_appointments_by_professional params={\"professional_id\":\"id\"}\n- Respuesta a recordatorio → action=confirm_from_reminder params={\"appointment_id\":\"uuid\",\"response\":\"confirm|cancel\"}\n- Registrar paciente → action=register_patient params={\"first_name\":\"X\",\"last_name\":\"Y\",\"email\":\"Z\"}\n\ntool_get_clinic_information → SOLO para info estatica que no esta en base de datos:\n- Direccion fisica / como llegar\n- Telefono de contacto directo\n- Formas de pago aceptadas\n- Aparcamiento o accesibilidad\n- Politicas generales (cancelacion, privacidad)\nNUNCA usar para servicios, precios, profesionales, citas o disponibilidad.\n\nREGLA DE DATOS EN TIEMPO REAL:\n- NUNCA uses la memoria del chat para responder sobre citas, disponibilidad, servicios o precios\n- SIEMPRE llama a tool_clinica en cada mensaje que requiera datos reales de la clinica\n\nINSTRUCCIONES PARA PRIMER MENSAJE:\n- Paciente conocido (ES PACIENTE NUEVO=false): saluda por nombre y atiende lo pedido\n- Paciente nuevo (ES PACIENTE NUEVO=true): presenta la clinica, pide nombre, apellidos y correo\n\nINSTRUCCIONES PARA PACIENTE NUEVO:\n- Tu UNICA tarea es recoger nombre, apellidos y correo\n- Muestra resumen y pide confirmacion antes de llamar la tool\n- Solo cuando confirme: tool_clinica action=register_patient\n- Hasta que este registrado no gestiones citas\n\nINSTRUCCIONES PARA AGENDAR:\n- Si el usuario quiere cita con profesional especifico: primero list_professionals para obtener professional_id, luego get_professional_slots para ver disponibilidad, luego create\n- Si no especifica fecha, usa SIEMPRE manana (calcula desde FECHA Y HORA ACTUAL)\n- Nunca inventes disponibilidad ni precios\n- Confirma datos antes de crear la cita\n- Se conciso (maximo 300 caracteres)\n- Pasa siempre phone={{ $json.phone }} y clinic_id={{ $json.clinic_id }}",
             "maxIterations": 10
           }
         },
@@ -1273,7 +1231,7 @@
         "typeVersion": 3.1,
         "position": [
           2544,
-          352
+          320
         ]
       },
       {
@@ -1306,7 +1264,7 @@
       {
         "parameters": {
           "name": "tool_get_clinic_information",
-          "description": "Busca informacion de la clinica: servicios, precios, horarios, FAQ, ubicacion, politicas. Usar cuando el usuario pregunta sobre la clinica.",
+          "description": "SOLO para preguntas estaticas: direccion fisica, como llegar, telefono de contacto, formas de pago, aparcamiento, accesibilidad y politicas generales. NO usar para: servicios con precios (tool_clinica action=list_services), profesionales (tool_clinica action=list_professionals), disponibilidad (tool_clinica action=get_professional_slots), ni citas (tool_clinica). Solo info estatica que no esta en la base de datos.",
           "workflowId": {
             "__rl": true,
             "value": "YJFyPtkcDPM4XXXB",
@@ -1349,7 +1307,7 @@
         "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
         "typeVersion": 2,
         "position": [
-          2592,
+          2624,
           -128
         ]
       },
@@ -1588,7 +1546,8 @@
       },
       {
         "parameters": {
-          "description": "Gestiona citas y registro de pacientes. Acciones disponibles: check_availability, create, cancel, reschedule, list_upcoming, register_patient. Pasa siempre phone y clinic_id.",
+          "name": "tool_clinica",
+          "description": "Herramienta única para gestionar citas, consultar disponibilidad, registrar pacientes, y obtener información de servicios y profesionales. Usar para CUALQUIER acción relacionada con citas o la clínica. Acciones: check_availability, create, cancel, reschedule, list_upcoming, register_patient, confirm_from_reminder, list_services, list_professionals, get_professional_slots, get_appointments_by_professional. Siempre pasar action, phone, clinic_id. El campo params es un JSON string con datos opcionales según la acción.",
           "workflowId": {
             "__rl": true,
             "mode": "id",
@@ -1596,123 +1555,53 @@
           },
           "workflowInputs": {
             "mappingMode": "defineBelow",
-            "value": {
-              "action": "={{ $fromAI('action', 'Accion: check_availability, create, cancel, reschedule, list_upcoming, register_patient', 'string') }}",
-              "phone": "={{ $fromAI('phone', 'Telefono del paciente', 'string') }}",
-              "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica', 'string') }}",
-              "service": "={{ $fromAI('service', 'Servicio solicitado, dejar vacio si no aplica', 'string', '') }}",
-              "preferred_date": "={{ $fromAI('preferred_date', 'Fecha preferida YYYY-MM-DD, dejar vacio si no aplica', 'string', '') }}",
-              "preferred_time": "={{ $fromAI('preferred_time', 'Hora preferida HH:MM, dejar vacio si no aplica', 'string', '') }}",
-              "appointment_id": "={{ $fromAI('appointment_id', 'UUID de la cita para cancel/reschedule, dejar vacio si no aplica', 'string', '') }}",
-              "first_name": "={{ $fromAI('first_name', 'Nombre del paciente para registro, dejar vacio si no aplica', 'string', '') }}",
-              "last_name": "={{ $fromAI('last_name', 'Apellidos del paciente para registro, dejar vacio si no aplica', 'string', '') }}",
-              "email": "={{ $fromAI('email', 'Email del paciente para registro, dejar vacio si no aplica', 'string', '') }}"
-            },
             "matchingColumns": [],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false,
+            "value": {
+              "action": "={{ $fromAI('action', 'Accion requerida: check_availability | create | cancel | reschedule | list_upcoming | register_patient | confirm_from_reminder | list_services | list_professionals | get_professional_slots | get_appointments_by_professional', 'string') }}",
+              "phone": "={{ $fromAI('phone', 'Telefono del paciente en formato internacional ej +34612345678', 'string') }}",
+              "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica, siempre usar clinic-test', 'string') }}",
+              "params": "={{ $fromAI('params', 'JSON string con parametros opcionales segun la accion. Ejemplos: para create usar {\"service\":\"Consulta\",\"preferred_date\":\"2026-04-20\",\"preferred_time\":\"10:00\",\"first_name\":\"Juan\",\"last_name\":\"Garcia\",\"email\":\"juan@mail.com\"}. Para cancel usar {\"appointment_id\":\"uuid\"}. Para get_professional_slots usar {\"professional_id\":\"1\",\"date\":\"2026-04-20\",\"duration\":30}. Para check_availability usar {\"service\":\"Consulta\",\"preferred_date\":\"2026-04-20\"}. Si no hay parametros opcionales pasar {}', 'string') }}"
+            },
             "schema": [
               {
                 "id": "action",
-                "displayName": "action",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
                 "type": "string",
-                "removed": false
+                "display": true,
+                "required": true,
+                "displayName": "action",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
               },
               {
                 "id": "phone",
-                "displayName": "phone",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
                 "type": "string",
-                "removed": false
+                "display": true,
+                "required": true,
+                "displayName": "phone",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
               },
               {
                 "id": "clinic_id",
+                "type": "string",
+                "display": true,
+                "required": true,
                 "displayName": "clinic_id",
-                "required": false,
                 "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "canBeUsedToMatch": true
               },
               {
-                "id": "service",
-                "displayName": "service",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
+                "id": "params",
                 "type": "string",
-                "removed": false
-              },
-              {
-                "id": "preferred_date",
-                "displayName": "preferred_date",
-                "required": false,
-                "defaultMatch": false,
                 "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
-              },
-              {
-                "id": "preferred_time",
-                "displayName": "preferred_time",
-                "required": false,
+                "required": true,
+                "displayName": "params",
                 "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
-              },
-              {
-                "id": "appointment_id",
-                "displayName": "appointment_id",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
-              },
-              {
-                "id": "first_name",
-                "displayName": "first_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
-              },
-              {
-                "id": "last_name",
-                "displayName": "last_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
-              },
-              {
-                "id": "email",
-                "displayName": "email",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "canBeUsedToMatch": true
               }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": false
+            ]
           }
         },
         "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
@@ -1779,14 +1668,6 @@
         "onError": "continueRegularOutput"
       },
       {
-        "id": "guardar-sesion-post-ia",
-        "name": "Guardar Sesion Post-IA",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          3150,
-          560
-        ],
         "parameters": {
           "method": "PATCH",
           "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/{{ $('Preparar Contexto Agente').first().json.session_id }}/",
@@ -1797,6 +1678,14 @@
           "jsonBody": "={\n  \"session_data\": {{ JSON.stringify({ last_message: $('Preparar Contexto Agente').first().json.chatInput, last_response: ($('Agente IA Clinica').first().json.output || '').substring(0, 500) }) }},\n  \"last_interaction\": \"{{ $now.toISO() }}\"\n}",
           "options": {}
         },
+        "id": "guardar-sesion-post-ia",
+        "name": "Guardar Sesion Post-IA",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          3152,
+          560
+        ],
         "credentials": {
           "httpHeaderAuth": {
             "id": "4582aNhH2U92BzV4",
@@ -1806,46 +1695,69 @@
         "continueOnFail": true
       },
       {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://waapi.app/api/v1/instances/{{ $('Preparar Contexto Agente').first().json.phone_number_id }}/client/action/send-message",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "chatId",
+                "value": "34644572083@c.us"
+              },
+              {
+                "name": "message",
+                "value": "=={{ $('Agente IA Clinica').first().json.output }}"
+              }
+            ]
+          },
+          "options": {}
+        },
         "id": "enviar-msg-whatsapp",
         "name": "Enviar Mensaje WhatsApp",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          3150,
-          352
+          3200,
+          224
         ],
-        "parameters": {
-          "method": "POST",
-          "url": "=https://graph.facebook.com/v18.0/{{ $('Preparar Contexto Agente').first().json.phone_number_id }}/messages",
-          "authentication": "genericCredentialType",
-          "genericAuthType": "httpHeaderAuth",
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.to }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"{{ $json.message }}\" }\n}",
-          "options": {}
-        },
         "credentials": {
           "httpHeaderAuth": {
-            "id": "4582aNhH2U92BzV4",
-            "name": "Django Auth"
+            "id": "zh53olyJG7CS8Klu",
+            "name": "Wapi Auth"
           }
         },
         "continueOnFail": true
       },
       {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ $input.first().json }}",
+          "options": {}
+        },
         "id": "d0fd8445-ee46-46c2-a27b-34382405059c",
         "name": "Responder a Webhook Postman",
         "type": "n8n-nodes-base.respondToWebhook",
         "typeVersion": 1.5,
         "position": [
-          3350,
-          352
-        ],
+          3424,
+          368
+        ]
+      },
+      {
         "parameters": {
-          "respondWith": "json",
-          "responseBody": "={{ $input.first().json }}",
-          "options": {}
-        }
+          "jsCode": "const body = $json.body || $json;\nconst entry = body.entry;\n\nif (!entry || !entry[0] || !entry[0].changes || !entry[0].changes[0] || !entry[0].changes[0].value.messages) {\n  return [{ json: { skip: true } }];\n}\n\nconst value = entry[0].changes[0].value;\nconst msg = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : {};\nconst phoneNumberId = value.metadata ? value.metadata.phone_number_id : '';\n\nreturn [{ json: {\n  phone: msg.from,\n  message: msg.text ? msg.text.body : '',\n  message_id: msg.id,\n  timestamp: msg.timestamp,\n  message_type: msg.type,\n  is_text: msg.type === 'text',\n  contact_name: contact.profile ? contact.profile.name : '',\n  phone_number_id: phoneNumberId,\n  clinic_id: 'clinic-test'\n}}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          288,
+          240
+        ],
+        "id": "3d65d3bd-d2e8-4e4c-adc4-9e757a07cb4b",
+        "name": "antiguo codigo normalize"
       }
     ],
     "connections": {
@@ -2026,7 +1938,7 @@
               "index": 0
             },
             {
-              "node": "Enviar Mensaje WhatsApp",
+              "node": "Responder a Webhook Postman",
               "type": "main",
               "index": 0
             }
@@ -2079,13 +1991,17 @@
       },
       "Enviar Mensaje WhatsApp": {
         "main": [
-          [
-            {
-              "node": "Responder a Webhook Postman",
-              "type": "main",
-              "index": 0
-            }
-          ]
+          []
+        ]
+      },
+      "Responder a Webhook Postman": {
+        "main": [
+          []
+        ]
+      },
+      "antiguo codigo normalize": {
+        "main": [
+          []
         ]
       }
     },
@@ -2095,18 +2011,18 @@
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-04-11T02:59:59.947Z",
-        "id": 74,
+        "createdAt": "2026-04-15T01:39:06.048Z",
+        "id": 130,
         "workflowId": "zG25BeZcZydZwM9f",
-        "versionId": "8cc9b634-2d09-4566-a8c5-8d472293092b",
+        "versionId": "b105da26-27f4-4614-8819-3be99c77cc80",
         "event": "deactivated",
         "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       },
       {
-        "createdAt": "2026-04-11T03:00:00.006Z",
-        "id": 75,
+        "createdAt": "2026-04-15T01:39:06.299Z",
+        "id": 131,
         "workflowId": "zG25BeZcZydZwM9f",
-        "versionId": "8cc9b634-2d09-4566-a8c5-8d472293092b",
+        "versionId": "b105da26-27f4-4614-8819-3be99c77cc80",
         "event": "activated",
         "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       }

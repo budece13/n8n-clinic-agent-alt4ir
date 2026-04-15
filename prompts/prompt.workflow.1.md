@@ -4,13 +4,12 @@ importable directamente en n8n (versión 1.x)(Impórtalo tú de manera autónoma
 gestión de citas en clínicas médicas.
 
 ## CONTEXTO DEL SISTEMA COMPLETO
-Este sistema consta de 6 workflows interconectados:
-1. WA-Inbound-Orchestrator (ESTE) — recibe mensajes WA, orquesta con AI Agent
+Este sistema consta de 5 workflows interconectados:
+1. WA-Inbound-Orchestrator (ESTE) — recibe mensajes WA, orquesta con AI Agent (gestión de sesión integrada)
 2. WA-Appointments-Manager — sub-workflow para CRUD de citas
 3. WA-Clinic-Info-RAG — sub-workflow para FAQ e info de servicios
-4. WA-Conversation-State — sub-workflow para gestión de sesión/estado
-5. WA-Reminder-24h-Scheduler — scheduler independiente de recordatorios 24h
-6. WA-Reminder-3h-Followup-Scheduler — scheduler de recordatorios 3h
+4. WA-Reminder-24h-Scheduler — scheduler independiente de recordatorios 24h
+5. WA-Reminder-3h-Followup-Scheduler — scheduler de recordatorios 3h
 
 ## FUNCIÓN DE ESTE WORKFLOW
 Recibir TODOS los mensajes entrantes de WhatsApp Cloud API, interpretarlos mediante 

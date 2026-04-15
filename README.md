@@ -23,7 +23,6 @@ WhatsApp ──► WA-Inbound-Orchestrator
 | `WA-Inbound-Orchestrator` | Núcleo central — recibe mensajes y enruta al sub-workflow correcto |
 | `WA-Appointments-Manager` | Lógica completa de citas (crear, modificar, cancelar) |
 | `WA-Clinic-Info-RAG` | Responde preguntas sobre la clínica con RAG + LangChain |
-| `WA-Conversation-State` | Gestión centralizada del estado de conversación por paciente |
 | `WA-Reminder-24h-Scheduler` | Recordatorios automáticos 24h antes de cada cita |
 | `WA-Reminder-3h-Followup` | Seguimiento y confirmación 3h antes de la cita |
 

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-04-10T00:36:47.246Z",
+  "updatedAt": "2026-04-15T01:50:22.684Z",
   "createdAt": "2026-04-09T19:03:17.341Z",
   "id": "9uusM4595mjJOMCc",
   "name": "WA-Appointments-Manager",
@@ -10,15 +10,15 @@
     {
       "parameters": {
         "inputSource": "jsonExample",
-        "jsonExample": "{\n  \"action\": \"create\",\n  \"phone\": \"+34600000001\",\n  \"clinic_id\": \"clinic-test\",\n  \"service\": \"\",\n  \"preferred_date\": \"\",\n  \"preferred_time\": \"\",\n  \"appointment_id\": \"\",\n  \"first_name\": \"\",\n  \"last_name\": \"\",\n  \"email\": \"\"\n}"
+        "jsonExample": "{\n  \"action\": \"create\",\n  \"phone\": \"+34600000001\",\n  \"clinic_id\": \"clinic-test\",\n  \"params\": \"{\\\"service\\\":\\\"Consulta General\\\",\\\"preferred_date\\\":\\\"2026-04-16\\\",\\\"preferred_time\\\":\\\"10:00\\\"}\"\n}"
       },
       "id": "trigger-execute",
       "name": "Trigger - Execute Workflow",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        80,
-        512
+        -128,
+        528
       ]
     },
     {
@@ -161,6 +161,94 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "list_services",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "15f76267-a14d-4cc9-9edc-9a71337fb854"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "list_professionals",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "4fbdf5aa-a621-442f-a6c2-23c1b3f8df4e"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_professional_slots",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "4d924032-66c2-43c5-a092-8a2162708829"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_appointments_by_professional",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "15d75306-66d0-4a45-a2e2-05c27f32091b"
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
@@ -187,11 +275,11 @@
           "parameters": [
             {
               "name": "date",
-              "value": "={{ $('Trigger - Execute Workflow').first().json.preferred_date || $now.plus(1, 'day').toFormat('yyyy-MM-dd') }}"
+              "value": "={{ $('Normalizar Inputs').first().json.preferred_date || $now.plus(1, 'day').toFormat('yyyy-MM-dd') }}"
             },
             {
               "name": "clinic",
-              "value": "={{ $('Trigger - Execute Workflow').first().json.clinic_id }}"
+              "value": "={{ $('Normalizar Inputs').first().json.clinic_id }}"
             }
           ]
         },
@@ -214,7 +302,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\n// Si no llega preferred_date, usar mañana por defecto\nlet preferredDate = trigger.preferred_date;\nif (!preferredDate) {\n  const tomorrow = new Date();\n  tomorrow.setDate(tomorrow.getDate() + 1);\n  preferredDate = tomorrow.toISOString().split('T')[0];\n}\n\nlet slots = [];\nif (Array.isArray(raw)) {\n  slots = raw;\n} else if (raw.slots && Array.isArray(raw.slots)) {\n  slots = raw.slots;\n} else if (raw.results && Array.isArray(raw.results)) {\n  slots = raw.results;\n} else if (raw.available_slots && Array.isArray(raw.available_slots)) {\n  slots = raw.available_slots;\n}\n\nconst fecha = new Date(preferredDate).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nif (!slots.length) {\n  return [{ json: {\n    success: true,\n    response: `Lo siento, no hay horarios disponibles para ${fecha}. ¿Quieres que revisemos otro día?`\n  }}];\n}\n\nconst listaHorarios = slots.map(slot => {\n  if (typeof slot === 'string') return `• ${slot}`;\n  if (slot.time) return `• ${slot.time}`;\n  if (slot.start_time) return `• ${slot.start_time}`;\n  if (slot.hour) return `• ${slot.hour}`;\n  return `• ${JSON.stringify(slot)}`;\n}).join('\n');\n\nreturn [{ json: {\n  success: true,\n  response: `Estos son los horarios disponibles para el ${fecha}:\n\n${listaHorarios}\n\n¿Cuál te viene mejor?`\n}}];"
+        "jsCode": "const raw = $input.first().json;\nconst norm = $('Normalizar Inputs').first().json;\n\nlet preferredDate = norm.preferred_date;\nif (!preferredDate) {\n  const tomorrow = new Date();\n  tomorrow.setDate(tomorrow.getDate() + 1);\n  preferredDate = tomorrow.toISOString().split('T')[0];\n}\n\nlet slots = [];\nif (Array.isArray(raw)) {\n  slots = raw;\n} else if (raw.slots && Array.isArray(raw.slots)) {\n  slots = raw.slots;\n} else if (raw.results && Array.isArray(raw.results)) {\n  slots = raw.results;\n} else if (raw.available_slots && Array.isArray(raw.available_slots)) {\n  slots = raw.available_slots;\n}\n\nconst fecha = new Date(preferredDate).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nif (!slots.length) {\n  return [{ json: {\n    success: true,\n    response: `Lo siento, no hay horarios disponibles para ${fecha}. ¿Quieres que revisemos otro día?`\n  }}];\n}\n\nconst listaHorarios = slots.map(slot => {\n  if (typeof slot === 'string') return `• ${slot}`;\n  if (slot.time) return `• ${slot.time}`;\n  if (slot.start_time) return `• ${slot.start_time}`;\n  if (slot.hour) return `• ${slot.hour}`;\n  return `• ${JSON.stringify(slot)}`;\n}).join('\\n');\n\nreturn [{ json: {\n  success: true,\n  response: `Estos son los horarios disponibles para el ${fecha}:\\n\\n${listaHorarios}\\n\\n¿Cuál te viene mejor?`\n}}];"
       },
       "id": "a-respuesta-temporal",
       "name": "A - Formatear Disponibilidad",
@@ -223,20 +311,6 @@
       "position": [
         608,
         112
-      ]
-    },
-    {
-      "parameters": {
-        "content": "⚠️ ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/available-slots/?service={id}&date={date} en clinic-app (Django) antes de activarse. Ver CLAUDE.md sección 5.\n\nAlternativa temporal: pedir hora preferida al paciente y crear cita directamente (staff confirma desde dashboard).",
-        "width": 520
-      },
-      "id": "nota-check-availability",
-      "name": "Nota - Endpoint Disponibilidad Pendiente",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        544,
-        -240
       ]
     },
     {
@@ -272,7 +346,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + trigger.phone);\n}\n\nconst patient = patients[0];\n\n// Obtener ID del servicio — puede estar vacío si el LLM no lo pasó\nlet service_id = null;\ntry {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  if (servicios.length) {\n    service_id = servicios[0].id;\n  }\n} catch (e) {\n  // B - Buscar Servicio sin datos (service vacío o no pasado)\n}\n\nif (!service_id && trigger.service) {\n  throw new Error('Servicio no encontrado: ' + trigger.service);\n}\n\nconst date = trigger.preferred_date || '';\nconst time = trigger.preferred_time || '09:00';\nconst scheduledAt = date ? `${date}T${time}:00+00:00` : '';\n\nlet endAt = '';\nif (scheduledAt) {\n  const start = new Date(scheduledAt);\n  start.setHours(start.getHours() + 1);\n  endAt = start.toISOString().replace('.000Z', '+00:00');\n}\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: trigger.phone\n}}];"
+        "jsCode": "const norm = $('Normalizar Inputs').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + norm.phone);\n}\n\nconst patient = patients[0];\n\n// Buscar servicio por nombre con match parcial\nlet service_id = null;\ntry {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  const query = (norm.service || '').toLowerCase().trim();\n  \n  let match = null;\n  if (query) {\n    // Match exacto\n    match = servicios.find(s => s.name.toLowerCase() === query);\n    // Match parcial\n    if (!match) match = servicios.find(s => s.name.toLowerCase().includes(query));\n    // Match inverso\n    if (!match) match = servicios.find(s => query.includes(s.name.toLowerCase()));\n  }\n  // Si hay un único servicio, usarlo directamente\n  if (!match && servicios.length === 1) match = servicios[0];\n  \n  if (match) service_id = match.id;\n} catch (e) {}\n\nif (!service_id && norm.service) {\n  throw new Error('Servicio no encontrado: ' + norm.service);\n}\n\nconst date = norm.preferred_date || '';\nconst time = norm.preferred_time || '09:00';\nconst scheduledAt = date ? `${date}T${time}:00+00:00` : '';\n\nlet endAt = '';\nif (scheduledAt) {\n  const start = new Date(scheduledAt);\n  start.setHours(start.getHours() + 1);\n  endAt = start.toISOString().replace('.000Z', '+00:00');\n}\n\nconst professionalId = norm.professional_id && norm.professional_id !== '' ? parseInt(norm.professional_id) || norm.professional_id : null;\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  professional_id: professionalId,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: norm.phone\n}}];"
       },
       "id": "b-preparar-datos-cita",
       "name": "B - Preparar Datos Cita",
@@ -291,34 +365,11 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "bodyParameters": {
-          "parameters": [
-            {
-              "name": "clinic",
-              "value": "={{ $json.clinic_id }}"
-            },
-            {
-              "name": "patient",
-              "value": "={{ $json.patient_id }}"
-            },
-            {
-              "name": "service",
-              "value": "={{ $json.service_id }}"
-            },
-            {
-              "name": "scheduled_at",
-              "value": "={{ $json.scheduled_at }}"
-            },
-            {
-              "name": "end_at",
-              "value": "={{ $json.end_at }}"
-            },
-            {
-              "name": "status",
-              "value": "pending"
-            }
-          ]
+          "parameters": []
         },
-        "options": {}
+        "options": {},
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"clinic\": \"{{ $json.clinic_id }}\",\n  \"patient\": {{ $json.patient_id }},\n  \"service\": {{ $json.service_id }},\n  \"professional\": {{ $json.professional_id !== null && $json.professional_id !== '' ? $json.professional_id : null }},\n  \"scheduled_at\": \"{{ $json.scheduled_at }}\",\n  \"end_at\": \"{{ $json.end_at }}\",\n  \"status\": \"pending\"\n}"
       },
       "id": "b-crear-cita",
       "name": "B - Crear Cita Django",
@@ -571,7 +622,6 @@
     },
     {
       "parameters": {
-        "mode": "rules",
         "rules": {
           "values": [
             {
@@ -583,7 +633,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $('Trigger - Execute Workflow').first().json.response }}",
+                    "leftValue": "={{ $('Normalizar Inputs').first().json.response }}",
                     "rightValue": "confirm",
                     "operator": {
                       "type": "string",
@@ -593,8 +643,7 @@
                   }
                 ],
                 "combinator": "and"
-              },
-              "renameOutput": false
+              }
             },
             {
               "conditions": {
@@ -605,7 +654,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $('Trigger - Execute Workflow').first().json.response }}",
+                    "leftValue": "={{ $('Normalizar Inputs').first().json.response }}",
                     "rightValue": "cancel",
                     "operator": {
                       "type": "string",
@@ -615,13 +664,12 @@
                   }
                 ],
                 "combinator": "and"
-              },
-              "renameOutput": false
+              }
             }
           ]
         },
         "options": {
-          "fallbackOutput": 2
+          "fallbackOutput": "extra"
         }
       },
       "id": "e-router-respuesta",
@@ -700,8 +748,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        608,
-        1392
+        592,
+        2032
       ]
     },
     {
@@ -731,7 +779,7 @@
     {
       "parameters": {
         "content": "## WA-Appointments-Manager\n\nSub-workflow para gestión completa de citas.\n\n### Ramas\n- **check_availability**: DESACTIVADA (endpoint pendiente)\n- **create**: Buscar paciente → Crear cita en Django\n- **cancel**: Buscar paciente → Buscar cita activa → Obtener token → Cancelar por token público\n- **list_upcoming**: Buscar paciente → Listar citas pendientes/confirmadas\n- **confirm_from_reminder**: Obtener token → Confirmar/Cancelar por token público\n\n### Endpoints Django usados\n- GET /api/patients/?phone={phone}\n- GET /api/appointments/?patient={id}&status=pending,confirmed\n- POST /api/appointments/ (crear cita)\n- GET /api/appointments/{id}/status/ (obtener token)\n- POST /api/public/appointments/{token}/confirm/ (sin auth)\n- POST /api/public/appointments/{token}/cancel/ (sin auth)\n\n### Endpoints pendientes\n- GET /api/v1/appointments/available-slots/?service={id}&date={date}\n- POST /api/agent/errors/ (log errores, ReadOnly)",
-        "height": 580,
+        "height": 612,
         "width": 500
       },
       "id": "nota-descripcion-wf",
@@ -740,7 +788,7 @@
       "typeVersion": 1,
       "position": [
         -304,
-        -96
+        -144
       ]
     },
     {
@@ -751,20 +799,20 @@
       "typeVersion": 2,
       "position": [
         1440,
-        1280
+        1264
       ],
       "id": "6d1f528d-8623-4f1c-8157-1e3ed7b620ce",
       "name": "F - Respuesta Registro"
     },
     {
       "parameters": {
-        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\n\nreturn [{ json: {\n  clinic_id: trigger.clinic_id,\n  first_name: trigger.first_name || '',\n  last_name: trigger.last_name || '',\n  phone: trigger.phone,\n  email: trigger.email || ''\n}}];"
+        "jsCode": "const norm = $('Normalizar Inputs').first().json;\n\nreturn [{ json: {\n  clinic_id: norm.clinic_id,\n  first_name: norm.first_name || '',\n  last_name: norm.last_name || '',\n  phone: norm.phone,\n  email: norm.email || ''\n}}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         608,
-        1200
+        1184
       ],
       "id": "893a2d7b-9cb4-4fd4-9bc4-eb9534406525",
       "name": "F - Preparar Datos Registro"
@@ -778,19 +826,22 @@
         "queryParameters": {
           "parameters": [
             {
-              "name": "name",
-              "value": "={{ $('Trigger - Execute Workflow').first().json.service }}"
+              "name": "clinic",
+              "value": "={{ $('Normalizar Inputs').first().json.clinic_id }}"
+            },
+            {
+              "name": "is_active",
+              "value": "true"
+            },
+            {
+              "name": "ordering",
+              "value": "name"
             }
           ]
         },
-        "sendBody": true,
+        "sendBody": false,
         "bodyParameters": {
-          "parameters": [
-            {
-              "name": "name",
-              "value": "=={{ $('Trigger - Execute Workflow').first().json.service }}"
-            }
-          ]
+          "parameters": []
         },
         "options": {}
       },
@@ -849,7 +900,7 @@
       "typeVersion": 4.4,
       "position": [
         1168,
-        1264
+        1248
       ],
       "id": "dfb8d9c6-9332-4dee-8a0e-18fff3c80ede",
       "name": "F - Crear Sesion",
@@ -882,7 +933,7 @@
       "typeVersion": 4.2,
       "position": [
         896,
-        1264
+        1248
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -891,6 +942,223 @@
         }
       },
       "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $input.first().json;\nlet p = {};\ntry { p = typeof trigger.params === 'string' ? JSON.parse(trigger.params) : (trigger.params || {}); } catch(e) {}\n\nreturn [{ json: {\n  action: trigger.action || '',\n  phone: trigger.phone || '',\n  clinic_id: trigger.clinic_id || '',\n  service: p.service || '',\n  professional_id: p.professional_id || '',\n  preferred_date: p.preferred_date || '',\n  preferred_time: p.preferred_time || '09:00',\n  appointment_id: p.appointment_id || '',\n  first_name: p.first_name || '',\n  last_name: p.last_name || '',\n  email: p.email || '',\n  date: p.date || '',\n  duration: p.duration || 30,\n  response: p.response || ''\n}}];"
+      },
+      "id": "normalizar-inputs",
+      "name": "Normalizar Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/services/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "clinic",
+              "value": "={{ $json.clinic_id }}"
+            },
+            {
+              "name": "is_active",
+              "value": "true"
+            },
+            {
+              "name": "ordering",
+              "value": "name"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "g-list-services",
+      "name": "G - Listar Servicios",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        608,
+        1408
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst items = raw.results || (Array.isArray(raw) ? raw : []);\nif (!items.length) return [{ json: { output: 'No hay servicios disponibles.', success: true } }];\nconst lines = items.map(s => {\n  const price = s.price ? ` - ${s.price}€` : '';\n  const dur = s.duration ? ` (${s.duration} min)` : '';\n  return `• ${s.name}${price}${dur}`;\n});\nreturn [{ json: { output: 'Servicios disponibles:\\n' + lines.join('\\n'), success: true } }];"
+      },
+      "id": "g-formatear-servicios",
+      "name": "G - Formatear Servicios",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/professionals/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "clinic",
+              "value": "={{ $json.clinic_id }}"
+            },
+            {
+              "name": "ordering",
+              "value": "user__last_name"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "h-list-professionals",
+      "name": "H - Listar Profesionales",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        608,
+        1568
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst items = raw.results || (Array.isArray(raw) ? raw : []);\nif (!items.length) return [{ json: { output: 'No hay profesionales disponibles.', success: true } }];\nconst lines = items.map(p => {\n  const name = p.full_name || ((p.user && (p.user.first_name + ' ' + p.user.last_name)) || 'Sin nombre');\n  const tipo = p.specialty || p.professional_type || '';\n  const services = (p.services || []).map(s => s.name || s).join(', ');\n  const svcStr = services ? ` → Servicios: ${services}` : '';\n  return `• [ID:${p.id}] ${name}${tipo ? ' (' + tipo + ')' : ''}${svcStr}`;\n});\nreturn [{ json: { output: 'Profesionales:\\n' + lines.join('\\n'), success: true } }];"
+      },
+      "id": "h-formatear-profesionales",
+      "name": "H - Formatear Profesionales",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/professionals/{{ $('Normalizar Inputs').first().json.professional_id }}/available-slots/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "date",
+              "value": "={{ $('Normalizar Inputs').first().json.date }}"
+            },
+            {
+              "name": "duration",
+              "value": "={{ $('Normalizar Inputs').first().json.duration || 30 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "i-get-professional-slots",
+      "name": "I - Obtener Slots Profesional",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        608,
+        1712
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst slots = raw.slots || raw.available_slots || (Array.isArray(raw) ? raw : []);\nif (!slots.length) return [{ json: { output: 'No hay slots disponibles para esa fecha.', success: true } }];\nconst limited = slots.slice(0, 12);\nconst lines = limited.map(s => {\n  const time = typeof s === 'string' ? s : (s.time || s.start_time || s.slot || '');\n  return `• ${time.substring(0, 5)}`;\n});\nconst extra = slots.length > 12 ? `\\n... y ${slots.length - 12} más.` : '';\nreturn [{ json: { output: 'Horarios disponibles:\\n' + lines.join('\\n') + extra, success: true } }];"
+      },
+      "id": "i-formatear-slots",
+      "name": "I - Formatear Slots",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1712
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/appointments/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "professional",
+              "value": "={{ $('Normalizar Inputs').first().json.professional_id }}"
+            },
+            {
+              "name": "status",
+              "value": "pending,confirmed"
+            },
+            {
+              "name": "ordering",
+              "value": "scheduled_at"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "j-get-appointments-by-prof",
+      "name": "J - Citas por Profesional",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        608,
+        1856
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "4582aNhH2U92BzV4",
+          "name": "Django Auth"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst items = raw.results || (Array.isArray(raw) ? raw : []);\nif (!items.length) return [{ json: { output: 'No hay citas pendientes para este profesional.', success: true } }];\nconst lines = items.map(a => {\n  const fecha = a.scheduled_at ? a.scheduled_at.substring(0, 16).replace('T', ' ') : 'Sin fecha';\n  const paciente = a.patient_name || a.patient || 'Paciente';\n  const servicio = a.service_name || a.service || '';\n  return `• ${fecha} - ${paciente}${servicio ? ' (' + servicio + ')' : ''} [${a.status || ''}]`;\n});\nreturn [{ json: { output: 'Agenda:\\n' + lines.join('\\n'), success: true } }];"
+      },
+      "id": "j-formatear-agenda",
+      "name": "J - Formatear Agenda Profesional",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1856
+      ]
     }
   ],
   "connections": {
@@ -898,7 +1166,7 @@
       "main": [
         [
           {
-            "node": "Router por Accion",
+            "node": "Normalizar Inputs",
             "type": "main",
             "index": 0
           }
@@ -951,7 +1219,28 @@
         ],
         [
           {
-            "node": "Error - Accion No Reconocida",
+            "node": "G - Listar Servicios",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "H - Listar Profesionales",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "I - Obtener Slots Profesional",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "J - Citas por Profesional",
             "type": "main",
             "index": 0
           }
@@ -1202,6 +1491,61 @@
           }
         ]
       ]
+    },
+    "Normalizar Inputs": {
+      "main": [
+        [
+          {
+            "node": "Router por Accion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "G - Listar Servicios": {
+      "main": [
+        [
+          {
+            "node": "G - Formatear Servicios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "H - Listar Profesionales": {
+      "main": [
+        [
+          {
+            "node": "H - Formatear Profesionales",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "I - Obtener Slots Profesional": {
+      "main": [
+        [
+          {
+            "node": "I - Formatear Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "J - Citas por Profesional": {
+      "main": [
+        [
+          {
+            "node": "J - Formatear Agenda Profesional",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -1214,9 +1558,9 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "3ae214ca-6681-4e46-801c-0e021fe7c1a3",
-  "activeVersionId": "3ae214ca-6681-4e46-801c-0e021fe7c1a3",
-  "versionCounter": 28,
+  "versionId": "cbbbac83-451b-4149-af53-ad8762c5f284",
+  "activeVersionId": "cbbbac83-451b-4149-af53-ad8762c5f284",
+  "versionCounter": 54,
   "triggerCount": 0,
   "shared": [
     {
@@ -1239,23 +1583,23 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-04-10T00:36:47.250Z",
-    "createdAt": "2026-04-10T00:36:47.250Z",
-    "versionId": "3ae214ca-6681-4e46-801c-0e021fe7c1a3",
+    "updatedAt": "2026-04-15T01:50:22.692Z",
+    "createdAt": "2026-04-15T01:50:22.692Z",
+    "versionId": "cbbbac83-451b-4149-af53-ad8762c5f284",
     "workflowId": "9uusM4595mjJOMCc",
     "nodes": [
       {
         "parameters": {
           "inputSource": "jsonExample",
-          "jsonExample": "{\n  \"action\": \"create\",\n  \"phone\": \"+34600000001\",\n  \"clinic_id\": \"clinic-test\",\n  \"service\": \"\",\n  \"preferred_date\": \"\",\n  \"preferred_time\": \"\",\n  \"appointment_id\": \"\",\n  \"first_name\": \"\",\n  \"last_name\": \"\",\n  \"email\": \"\"\n}"
+          "jsonExample": "{\n  \"action\": \"create\",\n  \"phone\": \"+34600000001\",\n  \"clinic_id\": \"clinic-test\",\n  \"params\": \"{\\\"service\\\":\\\"Consulta General\\\",\\\"preferred_date\\\":\\\"2026-04-16\\\",\\\"preferred_time\\\":\\\"10:00\\\"}\"\n}"
         },
         "id": "trigger-execute",
         "name": "Trigger - Execute Workflow",
         "type": "n8n-nodes-base.executeWorkflowTrigger",
         "typeVersion": 1.1,
         "position": [
-          80,
-          512
+          -128,
+          528
         ]
       },
       {
@@ -1398,6 +1742,94 @@
                   ],
                   "combinator": "and"
                 }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "rightValue": "list_services",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "id": "15f76267-a14d-4cc9-9edc-9a71337fb854"
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "rightValue": "list_professionals",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "id": "4fbdf5aa-a621-442f-a6c2-23c1b3f8df4e"
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "rightValue": "get_professional_slots",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "id": "4d924032-66c2-43c5-a092-8a2162708829"
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.action }}",
+                      "rightValue": "get_appointments_by_professional",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "id": "15d75306-66d0-4a45-a2e2-05c27f32091b"
+                    }
+                  ],
+                  "combinator": "and"
+                }
               }
             ]
           },
@@ -1424,11 +1856,11 @@
             "parameters": [
               {
                 "name": "date",
-                "value": "={{ $('Trigger - Execute Workflow').first().json.preferred_date || $now.plus(1, 'day').toFormat('yyyy-MM-dd') }}"
+                "value": "={{ $('Normalizar Inputs').first().json.preferred_date || $now.plus(1, 'day').toFormat('yyyy-MM-dd') }}"
               },
               {
                 "name": "clinic",
-                "value": "={{ $('Trigger - Execute Workflow').first().json.clinic_id }}"
+                "value": "={{ $('Normalizar Inputs').first().json.clinic_id }}"
               }
             ]
           },
@@ -1451,7 +1883,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const raw = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\n// Si no llega preferred_date, usar mañana por defecto\nlet preferredDate = trigger.preferred_date;\nif (!preferredDate) {\n  const tomorrow = new Date();\n  tomorrow.setDate(tomorrow.getDate() + 1);\n  preferredDate = tomorrow.toISOString().split('T')[0];\n}\n\nlet slots = [];\nif (Array.isArray(raw)) {\n  slots = raw;\n} else if (raw.slots && Array.isArray(raw.slots)) {\n  slots = raw.slots;\n} else if (raw.results && Array.isArray(raw.results)) {\n  slots = raw.results;\n} else if (raw.available_slots && Array.isArray(raw.available_slots)) {\n  slots = raw.available_slots;\n}\n\nconst fecha = new Date(preferredDate).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nif (!slots.length) {\n  return [{ json: {\n    success: true,\n    response: `Lo siento, no hay horarios disponibles para ${fecha}. ¿Quieres que revisemos otro día?`\n  }}];\n}\n\nconst listaHorarios = slots.map(slot => {\n  if (typeof slot === 'string') return `• ${slot}`;\n  if (slot.time) return `• ${slot.time}`;\n  if (slot.start_time) return `• ${slot.start_time}`;\n  if (slot.hour) return `• ${slot.hour}`;\n  return `• ${JSON.stringify(slot)}`;\n}).join('\n');\n\nreturn [{ json: {\n  success: true,\n  response: `Estos son los horarios disponibles para el ${fecha}:\n\n${listaHorarios}\n\n¿Cuál te viene mejor?`\n}}];"
+          "jsCode": "const raw = $input.first().json;\nconst norm = $('Normalizar Inputs').first().json;\n\nlet preferredDate = norm.preferred_date;\nif (!preferredDate) {\n  const tomorrow = new Date();\n  tomorrow.setDate(tomorrow.getDate() + 1);\n  preferredDate = tomorrow.toISOString().split('T')[0];\n}\n\nlet slots = [];\nif (Array.isArray(raw)) {\n  slots = raw;\n} else if (raw.slots && Array.isArray(raw.slots)) {\n  slots = raw.slots;\n} else if (raw.results && Array.isArray(raw.results)) {\n  slots = raw.results;\n} else if (raw.available_slots && Array.isArray(raw.available_slots)) {\n  slots = raw.available_slots;\n}\n\nconst fecha = new Date(preferredDate).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nif (!slots.length) {\n  return [{ json: {\n    success: true,\n    response: `Lo siento, no hay horarios disponibles para ${fecha}. ¿Quieres que revisemos otro día?`\n  }}];\n}\n\nconst listaHorarios = slots.map(slot => {\n  if (typeof slot === 'string') return `• ${slot}`;\n  if (slot.time) return `• ${slot.time}`;\n  if (slot.start_time) return `• ${slot.start_time}`;\n  if (slot.hour) return `• ${slot.hour}`;\n  return `• ${JSON.stringify(slot)}`;\n}).join('\\n');\n\nreturn [{ json: {\n  success: true,\n  response: `Estos son los horarios disponibles para el ${fecha}:\\n\\n${listaHorarios}\\n\\n¿Cuál te viene mejor?`\n}}];"
         },
         "id": "a-respuesta-temporal",
         "name": "A - Formatear Disponibilidad",
@@ -1460,20 +1892,6 @@
         "position": [
           608,
           112
-        ]
-      },
-      {
-        "parameters": {
-          "content": "⚠️ ENDPOINT PENDIENTE: Este nodo requiere implementar GET /api/v1/appointments/available-slots/?service={id}&date={date} en clinic-app (Django) antes de activarse. Ver CLAUDE.md sección 5.\n\nAlternativa temporal: pedir hora preferida al paciente y crear cita directamente (staff confirma desde dashboard).",
-          "width": 520
-        },
-        "id": "nota-check-availability",
-        "name": "Nota - Endpoint Disponibilidad Pendiente",
-        "type": "n8n-nodes-base.stickyNote",
-        "typeVersion": 1,
-        "position": [
-          544,
-          -240
         ]
       },
       {
@@ -1509,7 +1927,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + trigger.phone);\n}\n\nconst patient = patients[0];\n\n// Obtener ID del servicio — puede estar vacío si el LLM no lo pasó\nlet service_id = null;\ntry {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  if (servicios.length) {\n    service_id = servicios[0].id;\n  }\n} catch (e) {\n  // B - Buscar Servicio sin datos (service vacío o no pasado)\n}\n\nif (!service_id && trigger.service) {\n  throw new Error('Servicio no encontrado: ' + trigger.service);\n}\n\nconst date = trigger.preferred_date || '';\nconst time = trigger.preferred_time || '09:00';\nconst scheduledAt = date ? `${date}T${time}:00+00:00` : '';\n\nlet endAt = '';\nif (scheduledAt) {\n  const start = new Date(scheduledAt);\n  start.setHours(start.getHours() + 1);\n  endAt = start.toISOString().replace('.000Z', '+00:00');\n}\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: trigger.phone\n}}];"
+          "jsCode": "const norm = $('Normalizar Inputs').first().json;\nconst patientsRaw = $('B - Buscar Paciente').first().json;\nconst patients = patientsRaw.results || (Array.isArray(patientsRaw) ? patientsRaw : []);\n\nif (!patients.length) {\n  throw new Error('Paciente no encontrado para phone: ' + norm.phone);\n}\n\nconst patient = patients[0];\n\n// Buscar servicio por nombre con match parcial\nlet service_id = null;\ntry {\n  const serviciosRaw = $('B - Buscar Servicio').first().json;\n  const servicios = serviciosRaw.results || (Array.isArray(serviciosRaw) ? serviciosRaw : []);\n  const query = (norm.service || '').toLowerCase().trim();\n  \n  let match = null;\n  if (query) {\n    // Match exacto\n    match = servicios.find(s => s.name.toLowerCase() === query);\n    // Match parcial\n    if (!match) match = servicios.find(s => s.name.toLowerCase().includes(query));\n    // Match inverso\n    if (!match) match = servicios.find(s => query.includes(s.name.toLowerCase()));\n  }\n  // Si hay un único servicio, usarlo directamente\n  if (!match && servicios.length === 1) match = servicios[0];\n  \n  if (match) service_id = match.id;\n} catch (e) {}\n\nif (!service_id && norm.service) {\n  throw new Error('Servicio no encontrado: ' + norm.service);\n}\n\nconst date = norm.preferred_date || '';\nconst time = norm.preferred_time || '09:00';\nconst scheduledAt = date ? `${date}T${time}:00+00:00` : '';\n\nlet endAt = '';\nif (scheduledAt) {\n  const start = new Date(scheduledAt);\n  start.setHours(start.getHours() + 1);\n  endAt = start.toISOString().replace('.000Z', '+00:00');\n}\n\nconst professionalId = norm.professional_id && norm.professional_id !== '' ? parseInt(norm.professional_id) || norm.professional_id : null;\n\nreturn [{ json: {\n  patient_id: patient.id,\n  clinic_id: patient.clinic,\n  service_id: service_id,\n  professional_id: professionalId,\n  scheduled_at: scheduledAt,\n  end_at: endAt,\n  phone: norm.phone\n}}];"
         },
         "id": "b-preparar-datos-cita",
         "name": "B - Preparar Datos Cita",
@@ -1528,34 +1946,11 @@
           "genericAuthType": "httpHeaderAuth",
           "sendBody": true,
           "bodyParameters": {
-            "parameters": [
-              {
-                "name": "clinic",
-                "value": "={{ $json.clinic_id }}"
-              },
-              {
-                "name": "patient",
-                "value": "={{ $json.patient_id }}"
-              },
-              {
-                "name": "service",
-                "value": "={{ $json.service_id }}"
-              },
-              {
-                "name": "scheduled_at",
-                "value": "={{ $json.scheduled_at }}"
-              },
-              {
-                "name": "end_at",
-                "value": "={{ $json.end_at }}"
-              },
-              {
-                "name": "status",
-                "value": "pending"
-              }
-            ]
+            "parameters": []
           },
-          "options": {}
+          "options": {},
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"clinic\": \"{{ $json.clinic_id }}\",\n  \"patient\": {{ $json.patient_id }},\n  \"service\": {{ $json.service_id }},\n  \"professional\": {{ $json.professional_id !== null && $json.professional_id !== '' ? $json.professional_id : null }},\n  \"scheduled_at\": \"{{ $json.scheduled_at }}\",\n  \"end_at\": \"{{ $json.end_at }}\",\n  \"status\": \"pending\"\n}"
         },
         "id": "b-crear-cita",
         "name": "B - Crear Cita Django",
@@ -1808,7 +2203,6 @@
       },
       {
         "parameters": {
-          "mode": "rules",
           "rules": {
             "values": [
               {
@@ -1820,7 +2214,7 @@
                   },
                   "conditions": [
                     {
-                      "leftValue": "={{ $('Trigger - Execute Workflow').first().json.response }}",
+                      "leftValue": "={{ $('Normalizar Inputs').first().json.response }}",
                       "rightValue": "confirm",
                       "operator": {
                         "type": "string",
@@ -1830,8 +2224,7 @@
                     }
                   ],
                   "combinator": "and"
-                },
-                "renameOutput": false
+                }
               },
               {
                 "conditions": {
@@ -1842,7 +2235,7 @@
                   },
                   "conditions": [
                     {
-                      "leftValue": "={{ $('Trigger - Execute Workflow').first().json.response }}",
+                      "leftValue": "={{ $('Normalizar Inputs').first().json.response }}",
                       "rightValue": "cancel",
                       "operator": {
                         "type": "string",
@@ -1852,13 +2245,12 @@
                     }
                   ],
                   "combinator": "and"
-                },
-                "renameOutput": false
+                }
               }
             ]
           },
           "options": {
-            "fallbackOutput": 2
+            "fallbackOutput": "extra"
           }
         },
         "id": "e-router-respuesta",
@@ -1937,8 +2329,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          608,
-          1392
+          592,
+          2032
         ]
       },
       {
@@ -1968,7 +2360,7 @@
       {
         "parameters": {
           "content": "## WA-Appointments-Manager\n\nSub-workflow para gestión completa de citas.\n\n### Ramas\n- **check_availability**: DESACTIVADA (endpoint pendiente)\n- **create**: Buscar paciente → Crear cita en Django\n- **cancel**: Buscar paciente → Buscar cita activa → Obtener token → Cancelar por token público\n- **list_upcoming**: Buscar paciente → Listar citas pendientes/confirmadas\n- **confirm_from_reminder**: Obtener token → Confirmar/Cancelar por token público\n\n### Endpoints Django usados\n- GET /api/patients/?phone={phone}\n- GET /api/appointments/?patient={id}&status=pending,confirmed\n- POST /api/appointments/ (crear cita)\n- GET /api/appointments/{id}/status/ (obtener token)\n- POST /api/public/appointments/{token}/confirm/ (sin auth)\n- POST /api/public/appointments/{token}/cancel/ (sin auth)\n\n### Endpoints pendientes\n- GET /api/v1/appointments/available-slots/?service={id}&date={date}\n- POST /api/agent/errors/ (log errores, ReadOnly)",
-          "height": 580,
+          "height": 612,
           "width": 500
         },
         "id": "nota-descripcion-wf",
@@ -1977,7 +2369,7 @@
         "typeVersion": 1,
         "position": [
           -304,
-          -96
+          -144
         ]
       },
       {
@@ -1988,20 +2380,20 @@
         "typeVersion": 2,
         "position": [
           1440,
-          1280
+          1264
         ],
         "id": "6d1f528d-8623-4f1c-8157-1e3ed7b620ce",
         "name": "F - Respuesta Registro"
       },
       {
         "parameters": {
-          "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\n\nreturn [{ json: {\n  clinic_id: trigger.clinic_id,\n  first_name: trigger.first_name || '',\n  last_name: trigger.last_name || '',\n  phone: trigger.phone,\n  email: trigger.email || ''\n}}];"
+          "jsCode": "const norm = $('Normalizar Inputs').first().json;\n\nreturn [{ json: {\n  clinic_id: norm.clinic_id,\n  first_name: norm.first_name || '',\n  last_name: norm.last_name || '',\n  phone: norm.phone,\n  email: norm.email || ''\n}}];"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
           608,
-          1200
+          1184
         ],
         "id": "893a2d7b-9cb4-4fd4-9bc4-eb9534406525",
         "name": "F - Preparar Datos Registro"
@@ -2015,19 +2407,22 @@
           "queryParameters": {
             "parameters": [
               {
-                "name": "name",
-                "value": "={{ $('Trigger - Execute Workflow').first().json.service }}"
+                "name": "clinic",
+                "value": "={{ $('Normalizar Inputs').first().json.clinic_id }}"
+              },
+              {
+                "name": "is_active",
+                "value": "true"
+              },
+              {
+                "name": "ordering",
+                "value": "name"
               }
             ]
           },
-          "sendBody": true,
+          "sendBody": false,
           "bodyParameters": {
-            "parameters": [
-              {
-                "name": "name",
-                "value": "=={{ $('Trigger - Execute Workflow').first().json.service }}"
-              }
-            ]
+            "parameters": []
           },
           "options": {}
         },
@@ -2086,7 +2481,7 @@
         "typeVersion": 4.4,
         "position": [
           1168,
-          1264
+          1248
         ],
         "id": "dfb8d9c6-9332-4dee-8a0e-18fff3c80ede",
         "name": "F - Crear Sesion",
@@ -2119,7 +2514,7 @@
         "typeVersion": 4.2,
         "position": [
           896,
-          1264
+          1248
         ],
         "credentials": {
           "httpHeaderAuth": {
@@ -2128,6 +2523,223 @@
           }
         },
         "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "jsCode": "const trigger = $input.first().json;\nlet p = {};\ntry { p = typeof trigger.params === 'string' ? JSON.parse(trigger.params) : (trigger.params || {}); } catch(e) {}\n\nreturn [{ json: {\n  action: trigger.action || '',\n  phone: trigger.phone || '',\n  clinic_id: trigger.clinic_id || '',\n  service: p.service || '',\n  professional_id: p.professional_id || '',\n  preferred_date: p.preferred_date || '',\n  preferred_time: p.preferred_time || '09:00',\n  appointment_id: p.appointment_id || '',\n  first_name: p.first_name || '',\n  last_name: p.last_name || '',\n  email: p.email || '',\n  date: p.date || '',\n  duration: p.duration || 30,\n  response: p.response || ''\n}}];"
+        },
+        "id": "normalizar-inputs",
+        "name": "Normalizar Inputs",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          64,
+          528
+        ]
+      },
+      {
+        "parameters": {
+          "url": "={{ $env.DJANGO_API_URL }}/api/services/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "clinic",
+                "value": "={{ $json.clinic_id }}"
+              },
+              {
+                "name": "is_active",
+                "value": "true"
+              },
+              {
+                "name": "ordering",
+                "value": "name"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "g-list-services",
+        "name": "G - Listar Servicios",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          608,
+          1408
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "jsCode": "const raw = $input.first().json;\nconst items = raw.results || (Array.isArray(raw) ? raw : []);\nif (!items.length) return [{ json: { output: 'No hay servicios disponibles.', success: true } }];\nconst lines = items.map(s => {\n  const price = s.price ? ` - ${s.price}€` : '';\n  const dur = s.duration ? ` (${s.duration} min)` : '';\n  return `• ${s.name}${price}${dur}`;\n});\nreturn [{ json: { output: 'Servicios disponibles:\\n' + lines.join('\\n'), success: true } }];"
+        },
+        "id": "g-formatear-servicios",
+        "name": "G - Formatear Servicios",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          880,
+          1408
+        ]
+      },
+      {
+        "parameters": {
+          "url": "={{ $env.DJANGO_API_URL }}/api/professionals/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "clinic",
+                "value": "={{ $json.clinic_id }}"
+              },
+              {
+                "name": "ordering",
+                "value": "user__last_name"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "h-list-professionals",
+        "name": "H - Listar Profesionales",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          608,
+          1568
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "jsCode": "const raw = $input.first().json;\nconst items = raw.results || (Array.isArray(raw) ? raw : []);\nif (!items.length) return [{ json: { output: 'No hay profesionales disponibles.', success: true } }];\nconst lines = items.map(p => {\n  const name = p.full_name || ((p.user && (p.user.first_name + ' ' + p.user.last_name)) || 'Sin nombre');\n  const tipo = p.specialty || p.professional_type || '';\n  const services = (p.services || []).map(s => s.name || s).join(', ');\n  const svcStr = services ? ` → Servicios: ${services}` : '';\n  return `• [ID:${p.id}] ${name}${tipo ? ' (' + tipo + ')' : ''}${svcStr}`;\n});\nreturn [{ json: { output: 'Profesionales:\\n' + lines.join('\\n'), success: true } }];"
+        },
+        "id": "h-formatear-profesionales",
+        "name": "H - Formatear Profesionales",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          880,
+          1568
+        ]
+      },
+      {
+        "parameters": {
+          "url": "={{ $env.DJANGO_API_URL }}/api/professionals/{{ $('Normalizar Inputs').first().json.professional_id }}/available-slots/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "date",
+                "value": "={{ $('Normalizar Inputs').first().json.date }}"
+              },
+              {
+                "name": "duration",
+                "value": "={{ $('Normalizar Inputs').first().json.duration || 30 }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "i-get-professional-slots",
+        "name": "I - Obtener Slots Profesional",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          608,
+          1712
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "jsCode": "const raw = $input.first().json;\nconst slots = raw.slots || raw.available_slots || (Array.isArray(raw) ? raw : []);\nif (!slots.length) return [{ json: { output: 'No hay slots disponibles para esa fecha.', success: true } }];\nconst limited = slots.slice(0, 12);\nconst lines = limited.map(s => {\n  const time = typeof s === 'string' ? s : (s.time || s.start_time || s.slot || '');\n  return `• ${time.substring(0, 5)}`;\n});\nconst extra = slots.length > 12 ? `\\n... y ${slots.length - 12} más.` : '';\nreturn [{ json: { output: 'Horarios disponibles:\\n' + lines.join('\\n') + extra, success: true } }];"
+        },
+        "id": "i-formatear-slots",
+        "name": "I - Formatear Slots",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          880,
+          1712
+        ]
+      },
+      {
+        "parameters": {
+          "url": "={{ $env.DJANGO_API_URL }}/api/appointments/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "professional",
+                "value": "={{ $('Normalizar Inputs').first().json.professional_id }}"
+              },
+              {
+                "name": "status",
+                "value": "pending,confirmed"
+              },
+              {
+                "name": "ordering",
+                "value": "scheduled_at"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "j-get-appointments-by-prof",
+        "name": "J - Citas por Profesional",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          608,
+          1856
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "4582aNhH2U92BzV4",
+            "name": "Django Auth"
+          }
+        },
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "jsCode": "const raw = $input.first().json;\nconst items = raw.results || (Array.isArray(raw) ? raw : []);\nif (!items.length) return [{ json: { output: 'No hay citas pendientes para este profesional.', success: true } }];\nconst lines = items.map(a => {\n  const fecha = a.scheduled_at ? a.scheduled_at.substring(0, 16).replace('T', ' ') : 'Sin fecha';\n  const paciente = a.patient_name || a.patient || 'Paciente';\n  const servicio = a.service_name || a.service || '';\n  return `• ${fecha} - ${paciente}${servicio ? ' (' + servicio + ')' : ''} [${a.status || ''}]`;\n});\nreturn [{ json: { output: 'Agenda:\\n' + lines.join('\\n'), success: true } }];"
+        },
+        "id": "j-formatear-agenda",
+        "name": "J - Formatear Agenda Profesional",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          880,
+          1856
+        ]
       }
     ],
     "connections": {
@@ -2135,7 +2747,7 @@
         "main": [
           [
             {
-              "node": "Router por Accion",
+              "node": "Normalizar Inputs",
               "type": "main",
               "index": 0
             }
@@ -2188,7 +2800,28 @@
           ],
           [
             {
-              "node": "Error - Accion No Reconocida",
+              "node": "G - Listar Servicios",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "H - Listar Profesionales",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "I - Obtener Slots Profesional",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "J - Citas por Profesional",
               "type": "main",
               "index": 0
             }
@@ -2439,6 +3072,61 @@
             }
           ]
         ]
+      },
+      "Normalizar Inputs": {
+        "main": [
+          [
+            {
+              "node": "Router por Accion",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "G - Listar Servicios": {
+        "main": [
+          [
+            {
+              "node": "G - Formatear Servicios",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "H - Listar Profesionales": {
+        "main": [
+          [
+            {
+              "node": "H - Formatear Profesionales",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "I - Obtener Slots Profesional": {
+        "main": [
+          [
+            {
+              "node": "I - Formatear Slots",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "J - Citas por Profesional": {
+        "main": [
+          [
+            {
+              "node": "J - Formatear Agenda Profesional",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "authors": "devs cool",
@@ -2447,18 +3135,18 @@
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-04-10T00:36:47.363Z",
-        "id": 56,
+        "createdAt": "2026-04-15T01:50:22.838Z",
+        "id": 136,
         "workflowId": "9uusM4595mjJOMCc",
-        "versionId": "3ae214ca-6681-4e46-801c-0e021fe7c1a3",
+        "versionId": "cbbbac83-451b-4149-af53-ad8762c5f284",
         "event": "deactivated",
         "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       },
       {
-        "createdAt": "2026-04-10T00:36:47.413Z",
-        "id": 57,
+        "createdAt": "2026-04-15T01:50:22.891Z",
+        "id": 137,
         "workflowId": "9uusM4595mjJOMCc",
-        "versionId": "3ae214ca-6681-4e46-801c-0e021fe7c1a3",
+        "versionId": "cbbbac83-451b-4149-af53-ad8762c5f284",
         "event": "activated",
         "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       }
