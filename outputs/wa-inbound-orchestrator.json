@@ -1,7 +1,7 @@
 {
   "success": true,
   "data": {
-    "updatedAt": "2026-04-16T00:59:17.423Z",
+    "updatedAt": "2026-05-04T02:22:47.463Z",
     "createdAt": "2026-04-09T19:03:15.824Z",
     "id": "zG25BeZcZydZwM9f",
     "name": "WA-Inbound-Orchestrator",
@@ -75,13 +75,22 @@
       {
         "parameters": {
           "method": "POST",
-          "url": "=https://graph.facebook.com/v18.0/{{ $json.phone_number_id }}/messages",
-          "authentication": "genericCredentialType",
+          "url": "={{ $json.whatsapp_api_url }}/{{ $json.whatsapp_phone_number_id }}/client/action/send-message",
+          "authentication": "none",
           "genericAuthType": "httpHeaderAuth",
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.phone }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"Hola, de momento solo puedo procesar mensajes de texto. Por favor, escríbeme tu consulta.\" }\n}",
-          "options": {}
+          "jsonBody": "={\n  \"chatId\": \"{{ $json.phone }}@c.us\",\n  \"message\": \"Hola, de momento solo puedo procesar mensajes de texto. Por favor, escríbeme tu consulta.\"\n}",
+          "options": {},
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.whatsapp_token }}"
+              }
+            ]
+          }
         },
         "id": "1b37368e-46b6-4c80-8f8e-45b776da94dc",
         "name": "Responder Solo Texto",
@@ -91,18 +100,13 @@
           1008,
           688
         ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "4582aNhH2U92BzV4",
-            "name": "Django Auth"
-          }
-        },
+        "credentials": {},
         "onError": "continueRegularOutput"
       },
       {
         "parameters": {
           "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
-          "authentication": "genericCredentialType",
+          "authentication": "none",
           "genericAuthType": "httpHeaderAuth",
           "sendQuery": true,
           "queryParameters": {
@@ -113,7 +117,16 @@
               }
             ]
           },
-          "options": {}
+          "options": {},
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+              }
+            ]
+          }
         },
         "id": "de673299-46d4-46a9-9e25-56d23772af81",
         "name": "Cargar Sesion",
@@ -123,17 +136,12 @@
           1248,
           352
         ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "4582aNhH2U92BzV4",
-            "name": "Django Auth"
-          }
-        }
+        "credentials": {}
       },
       {
         "parameters": {
           "url": "={{ $env.DJANGO_API_URL }}/api/appointments/",
-          "authentication": "genericCredentialType",
+          "authentication": "none",
           "genericAuthType": "httpHeaderAuth",
           "sendQuery": true,
           "queryParameters": {
@@ -168,7 +176,16 @@
               }
             ]
           },
-          "options": {}
+          "options": {},
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+              }
+            ]
+          }
         },
         "id": "a09aedf3-e040-4c07-ae9d-355f4854b949",
         "name": "Verificar Reminder Pendiente",
@@ -178,12 +195,7 @@
           2064,
           352
         ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "4582aNhH2U92BzV4",
-            "name": "Django Auth"
-          }
-        }
+        "credentials": {}
       },
       {
         "parameters": {
@@ -254,10 +266,13 @@
             "cachedResultUrl": "/workflow/YJFyPtkcDPM4XXXB"
           },
           "workflowInputs": {
+            "mappingMode": "defineBelow",
             "value": {
               "question": "={{ $fromAI('question', 'Pregunta del usuario sobre la clinica', 'string') }}",
-              "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica', 'string') }}"
+              "clinic_id": "={{ $('Preparar Contexto').first().json.clinic_id }}",
+              "django_auth_header": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
             },
+            "matchingColumns": [],
             "schema": [
               {
                 "id": "question",
@@ -276,10 +291,17 @@
                 "displayName": "clinic_id",
                 "defaultMatch": false,
                 "canBeUsedToMatch": true
+              },
+              {
+                "id": "django_auth_header",
+                "type": "string",
+                "display": true,
+                "required": true,
+                "displayName": "django_auth_header",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
               }
             ],
-            "mappingMode": "defineBelow",
-            "matchingColumns": [],
             "attemptToConvertTypes": false,
             "convertFieldsToString": false
           }
@@ -303,12 +325,16 @@
             "value": "9uusM4595mjJOMCc"
           },
           "workflowInputs": {
+            "mappingMode": "defineBelow",
             "value": {
               "action": "confirm_from_reminder",
               "phone": "={{ $fromAI('phone', 'Telefono del paciente', 'string') }}",
               "appointment_id": "={{ $fromAI('appointment_id', 'UUID de la cita del recordatorio', 'string') }}",
-              "response": "={{ $fromAI('response', 'Respuesta: confirm, cancel o reschedule', 'string') }}"
+              "response": "={{ $fromAI('response', 'Respuesta: confirm, cancel o reschedule', 'string') }}",
+              "clinic_id": "={{ $('Preparar Contexto').first().json.clinic_id }}",
+              "django_auth_header": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
             },
+            "matchingColumns": [],
             "schema": [
               {
                 "id": "action",
@@ -345,10 +371,26 @@
                 "displayName": "response",
                 "defaultMatch": false,
                 "canBeUsedToMatch": true
+              },
+              {
+                "id": "clinic_id",
+                "type": "string",
+                "display": true,
+                "required": true,
+                "displayName": "clinic_id",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "django_auth_header",
+                "type": "string",
+                "display": true,
+                "required": true,
+                "displayName": "django_auth_header",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
               }
             ],
-            "mappingMode": "defineBelow",
-            "matchingColumns": [],
             "attemptToConvertTypes": false,
             "convertFieldsToString": false
           }
@@ -410,12 +452,21 @@
         "parameters": {
           "method": "POST",
           "url": "={{ $env.DJANGO_API_URL }}/api/agent/errors/",
-          "authentication": "genericCredentialType",
+          "authentication": "none",
           "genericAuthType": "httpHeaderAuth",
           "sendBody": true,
           "specifyBody": "json",
           "jsonBody": "={\n  \"workflow\": \"{{ $workflow.id }}\",\n  \"workflow_name\": \"{{ $workflow.name }}\",\n  \"node_name\": \"{{ $json.execution.error.node.name }}\",\n  \"error_message\": \"{{ $json.execution.error.message }}\",\n  \"phone\": \"{{ $json.execution.customData.phone || '' }}\",\n  \"payload\": {{ JSON.stringify($json) }}\n}",
-          "options": {}
+          "options": {},
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ $json.execution.customData.django_auth_header || '' }}"
+              }
+            ]
+          }
         },
         "id": "c283d751-01ee-4999-8185-f5376ba5ba9f",
         "name": "Post Agent Error",
@@ -425,12 +476,7 @@
           480,
           1008
         ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "4582aNhH2U92BzV4",
-            "name": "Django Auth"
-          }
-        }
+        "credentials": {}
       },
       {
         "parameters": {
@@ -484,7 +530,7 @@
       {
         "parameters": {
           "url": "={{ $env.DJANGO_API_URL }}/api/patients/",
-          "authentication": "genericCredentialType",
+          "authentication": "none",
           "genericAuthType": "httpHeaderAuth",
           "sendQuery": true,
           "queryParameters": {
@@ -495,7 +541,16 @@
               }
             ]
           },
-          "options": {}
+          "options": {},
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+              }
+            ]
+          }
         },
         "id": "buscar-paciente-django",
         "name": "Buscar Paciente",
@@ -505,12 +560,7 @@
           1024,
           352
         ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "4582aNhH2U92BzV4",
-            "name": "Django Auth"
-          }
-        },
+        "credentials": {},
         "onError": "continueRegularOutput"
       },
       {
@@ -539,8 +589,9 @@
             "value": {
               "action": "={{ $fromAI('action', 'Accion requerida: check_availability | create | cancel | reschedule | list_upcoming | register_patient | confirm_from_reminder | list_services | list_professionals | get_professional_slots | get_appointments_by_professional', 'string') }}",
               "phone": "={{ $fromAI('phone', 'Telefono del paciente en formato internacional ej +34612345678', 'string') }}",
-              "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica, siempre usar clinic-test', 'string') }}",
-              "params": "={{ $fromAI('params', 'JSON string con parametros opcionales segun la accion. Ejemplos: para create usar {\"service\":\"Consulta\", \"professional\": \"Manuel\",\"preferred_date\":\"2026-04-20\",\"preferred_time\":\"10:00\",\"first_name\":\"Juan\",\"last_name\":\"Garcia\",\"email\":\"juan@mail.com\"}. Para cancel usar {\"appointment_id\":\"uuid\"}. Para get_professional_slots usar {\"professional_id\":\"1\",\"date\":\"2026-04-20\",\"duration\":30}. Para check_availability usar {\"service\":\"Consulta\",\"preferred_date\":\"2026-04-20\"}. Si no hay parametros opcionales pasar {}', 'string') }}"
+              "clinic_id": "={{ $('Preparar Contexto').first().json.clinic_id }}",
+              "params": "={{ $fromAI('params', 'JSON string con parametros opcionales segun la accion. Ejemplos: para create usar {\"service\":\"Consulta\", \"professional\": \"Manuel\",\"preferred_date\":\"2026-04-20\",\"preferred_time\":\"10:00\",\"first_name\":\"Juan\",\"last_name\":\"Garcia\",\"email\":\"juan@mail.com\"}. Para cancel usar {\"appointment_id\":\"uuid\"}. Para get_professional_slots usar {\"professional_id\":\"1\",\"date\":\"2026-04-20\",\"duration\":30}. Para check_availability usar {\"service\":\"Consulta\",\"preferred_date\":\"2026-04-20\"}. Si no hay parametros opcionales pasar {}', 'string') }}",
+              "django_auth_header": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -579,6 +630,15 @@
                 "displayName": "params",
                 "defaultMatch": false,
                 "canBeUsedToMatch": true
+              },
+              {
+                "id": "django_auth_header",
+                "type": "string",
+                "display": true,
+                "required": true,
+                "displayName": "django_auth_header",
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
               }
             ],
             "attemptToConvertTypes": false,
@@ -598,12 +658,21 @@
         "parameters": {
           "method": "PATCH",
           "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/{{ $('Cargar Sesion').first().json.results[0].id }}/",
-          "authentication": "genericCredentialType",
+          "authentication": "none",
           "genericAuthType": "httpHeaderAuth",
           "sendBody": true,
           "specifyBody": "json",
           "jsonBody": "={\n  \"last_interaction\": \"{{ $now.toISO() }}\"\n}",
-          "options": {}
+          "options": {},
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+              }
+            ]
+          }
         },
         "id": "aabb1122-ccdd-3344-eeff-556677889900",
         "name": "Actualizar Sesion",
@@ -613,24 +682,28 @@
           1760,
           192
         ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "4582aNhH2U92BzV4",
-            "name": "Django Auth"
-          }
-        },
+        "credentials": {},
         "onError": "continueRegularOutput"
       },
       {
         "parameters": {
           "method": "POST",
           "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
-          "authentication": "genericCredentialType",
+          "authentication": "none",
           "genericAuthType": "httpHeaderAuth",
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={\n  \"clinic\": \"{{ $('Normalizar Mensaje').first().json.clinic_id }}\",\n  \"phone\": \"{{ $('Normalizar Mensaje').first().json.phone }}\",\n  \"session_data\": {}\n}",
-          "options": {}
+          "jsonBody": "={\n  \"clinic\": \"{{ $('Preparar Contexto').first().json.clinic_id }}\",\n  \"phone\": \"{{ $('Normalizar Mensaje').first().json.phone }}\",\n  \"session_data\": {}\n}",
+          "options": {},
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+              }
+            ]
+          }
         },
         "id": "11223344-5566-7788-99aa-bbccddeeff00",
         "name": "Crear Sesion",
@@ -640,24 +713,28 @@
           1776,
           512
         ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "4582aNhH2U92BzV4",
-            "name": "Django Auth"
-          }
-        },
+        "credentials": {},
         "onError": "continueRegularOutput"
       },
       {
         "parameters": {
           "method": "PATCH",
           "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/{{ $('Preparar Contexto Agente').first().json.session_id }}/",
-          "authentication": "genericCredentialType",
+          "authentication": "none",
           "genericAuthType": "httpHeaderAuth",
           "sendBody": true,
           "specifyBody": "json",
           "jsonBody": "={\n  \"session_data\": {{ JSON.stringify({ last_message: $('Preparar Contexto Agente').first().json.chatInput, last_response: ($('Agente IA Clinica').first().json.output || '').substring(0, 500) }) }},\n  \"last_interaction\": \"{{ $now.toISO() }}\"\n}",
-          "options": {}
+          "options": {},
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+              }
+            ]
+          }
         },
         "id": "guardar-sesion-post-ia",
         "name": "Guardar Sesion Post-IA",
@@ -667,26 +744,21 @@
           3152,
           560
         ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "4582aNhH2U92BzV4",
-            "name": "Django Auth"
-          }
-        },
+        "credentials": {},
         "continueOnFail": true
       },
       {
         "parameters": {
           "method": "POST",
-          "url": "=https://waapi.app/api/v1/instances/{{ $('Preparar Contexto Agente').first().json.phone_number_id }}/client/action/send-message",
-          "authentication": "genericCredentialType",
+          "url": "={{ $('Preparar Contexto').first().json.whatsapp_api_url }}/{{ $('Preparar Contexto').first().json.whatsapp_phone_number_id }}/client/action/send-message",
+          "authentication": "none",
           "genericAuthType": "httpHeaderAuth",
           "sendBody": true,
           "bodyParameters": {
             "parameters": [
               {
                 "name": "chatId",
-                "value": "34644572083@c.us"
+                "value": "={{ $('Normalizar Mensaje').first().json.phone }}@c.us"
               },
               {
                 "name": "message",
@@ -694,7 +766,16 @@
               }
             ]
           },
-          "options": {}
+          "options": {},
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $('Preparar Contexto').first().json.whatsapp_token }}"
+              }
+            ]
+          }
         },
         "id": "enviar-msg-whatsapp",
         "name": "Enviar Mensaje WhatsApp",
@@ -704,12 +785,7 @@
           3440,
           352
         ],
-        "credentials": {
-          "httpHeaderAuth": {
-            "id": "zh53olyJG7CS8Klu",
-            "name": "Wapi Auth"
-          }
-        },
+        "credentials": {},
         "continueOnFail": true
       },
       {
@@ -739,6 +815,55 @@
         ],
         "id": "3d65d3bd-d2e8-4e4c-adc4-9e757a07cb4b",
         "name": "antiguo codigo normalize"
+      },
+      {
+        "id": "cargar-config-clinica",
+        "name": "Cargar Config Clínica",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          700,
+          192
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "InRZ0YJoQ0BehxyJ",
+            "mode": "id"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "phone_number_id": "={{ $json.phone_number_id }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "phone_number_id",
+                "displayName": "phone_number_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "preparar-contexto",
+        "name": "Preparar Contexto",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          960,
+          192
+        ],
+        "parameters": {
+          "jsCode": "const msg = $('Normalizar Mensaje').first().json;\nconst config = $input.first().json;\n\nconst result = Object.assign({}, msg, {\n  clinic_id: config.clinic_id,\n  clinic_name: config.name,\n  clinic_timezone: config.timezone,\n  django_auth_header: config.django_auth_header,\n  whatsapp_phone_number_id: config.whatsapp_phone_number_id,\n  whatsapp_token: config.whatsapp_token,\n  whatsapp_api_url: config.whatsapp_api_url\n});\n\n$execution.customData.set('django_auth_header', config.django_auth_header);\n\nreturn [{ json: result }];"
+        }
       }
     ],
     "connections": {
@@ -747,17 +872,6 @@
           [
             {
               "node": "Normalizar Mensaje",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Normalizar Mensaje": {
-        "main": [
-          [
-            {
-              "node": "Es Mensaje Texto?",
               "type": "main",
               "index": 0
             }
@@ -990,6 +1104,39 @@
         "main": [
           []
         ]
+      },
+      "Normalizar Mensaje": {
+        "main": [
+          [
+            {
+              "node": "Cargar Config Clínica",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Cargar Config Clínica": {
+        "main": [
+          [
+            {
+              "node": "Preparar Contexto",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Preparar Contexto": {
+        "main": [
+          [
+            {
+              "node": "Es Mensaje Texto?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "settings": {
@@ -1004,9 +1151,9 @@
       "templateCredsSetupCompleted": true
     },
     "pinData": {},
-    "versionId": "6ed27e72-8860-4570-b711-3dd38604302d",
-    "activeVersionId": "6ed27e72-8860-4570-b711-3dd38604302d",
-    "versionCounter": 234,
+    "versionId": "f491b0c5-8b49-471e-ae99-4c86bf1b4248",
+    "activeVersionId": "f491b0c5-8b49-471e-ae99-4c86bf1b4248",
+    "versionCounter": 250,
     "triggerCount": 1,
     "shared": [
       {
@@ -1029,9 +1176,9 @@
     ],
     "tags": [],
     "activeVersion": {
-      "updatedAt": "2026-04-16T00:59:17.432Z",
-      "createdAt": "2026-04-16T00:59:17.432Z",
-      "versionId": "6ed27e72-8860-4570-b711-3dd38604302d",
+      "updatedAt": "2026-05-04T02:22:47.471Z",
+      "createdAt": "2026-05-04T02:22:47.471Z",
+      "versionId": "f491b0c5-8b49-471e-ae99-4c86bf1b4248",
       "workflowId": "zG25BeZcZydZwM9f",
       "nodes": [
         {
@@ -1100,13 +1247,22 @@
         {
           "parameters": {
             "method": "POST",
-            "url": "=https://graph.facebook.com/v18.0/{{ $json.phone_number_id }}/messages",
-            "authentication": "genericCredentialType",
+            "url": "={{ $json.whatsapp_api_url }}/{{ $json.whatsapp_phone_number_id }}/client/action/send-message",
+            "authentication": "none",
             "genericAuthType": "httpHeaderAuth",
             "sendBody": true,
             "specifyBody": "json",
-            "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"to\": \"{{ $json.phone }}\",\n  \"type\": \"text\",\n  \"text\": { \"body\": \"Hola, de momento solo puedo procesar mensajes de texto. Por favor, escríbeme tu consulta.\" }\n}",
-            "options": {}
+            "jsonBody": "={\n  \"chatId\": \"{{ $json.phone }}@c.us\",\n  \"message\": \"Hola, de momento solo puedo procesar mensajes de texto. Por favor, escríbeme tu consulta.\"\n}",
+            "options": {},
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $json.whatsapp_token }}"
+                }
+              ]
+            }
           },
           "id": "1b37368e-46b6-4c80-8f8e-45b776da94dc",
           "name": "Responder Solo Texto",
@@ -1116,18 +1272,13 @@
             1008,
             688
           ],
-          "credentials": {
-            "httpHeaderAuth": {
-              "id": "4582aNhH2U92BzV4",
-              "name": "Django Auth"
-            }
-          },
+          "credentials": {},
           "onError": "continueRegularOutput"
         },
         {
           "parameters": {
             "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
-            "authentication": "genericCredentialType",
+            "authentication": "none",
             "genericAuthType": "httpHeaderAuth",
             "sendQuery": true,
             "queryParameters": {
@@ -1138,7 +1289,16 @@
                 }
               ]
             },
-            "options": {}
+            "options": {},
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+                }
+              ]
+            }
           },
           "id": "de673299-46d4-46a9-9e25-56d23772af81",
           "name": "Cargar Sesion",
@@ -1148,17 +1308,12 @@
             1248,
             352
           ],
-          "credentials": {
-            "httpHeaderAuth": {
-              "id": "4582aNhH2U92BzV4",
-              "name": "Django Auth"
-            }
-          }
+          "credentials": {}
         },
         {
           "parameters": {
             "url": "={{ $env.DJANGO_API_URL }}/api/appointments/",
-            "authentication": "genericCredentialType",
+            "authentication": "none",
             "genericAuthType": "httpHeaderAuth",
             "sendQuery": true,
             "queryParameters": {
@@ -1193,7 +1348,16 @@
                 }
               ]
             },
-            "options": {}
+            "options": {},
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+                }
+              ]
+            }
           },
           "id": "a09aedf3-e040-4c07-ae9d-355f4854b949",
           "name": "Verificar Reminder Pendiente",
@@ -1203,12 +1367,7 @@
             2064,
             352
           ],
-          "credentials": {
-            "httpHeaderAuth": {
-              "id": "4582aNhH2U92BzV4",
-              "name": "Django Auth"
-            }
-          }
+          "credentials": {}
         },
         {
           "parameters": {
@@ -1279,10 +1438,13 @@
               "cachedResultUrl": "/workflow/YJFyPtkcDPM4XXXB"
             },
             "workflowInputs": {
+              "mappingMode": "defineBelow",
               "value": {
                 "question": "={{ $fromAI('question', 'Pregunta del usuario sobre la clinica', 'string') }}",
-                "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica', 'string') }}"
+                "clinic_id": "={{ $('Preparar Contexto').first().json.clinic_id }}",
+                "django_auth_header": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
               },
+              "matchingColumns": [],
               "schema": [
                 {
                   "id": "question",
@@ -1301,10 +1463,17 @@
                   "displayName": "clinic_id",
                   "defaultMatch": false,
                   "canBeUsedToMatch": true
+                },
+                {
+                  "id": "django_auth_header",
+                  "type": "string",
+                  "display": true,
+                  "required": true,
+                  "displayName": "django_auth_header",
+                  "defaultMatch": false,
+                  "canBeUsedToMatch": true
                 }
               ],
-              "mappingMode": "defineBelow",
-              "matchingColumns": [],
               "attemptToConvertTypes": false,
               "convertFieldsToString": false
             }
@@ -1328,12 +1497,16 @@
               "value": "9uusM4595mjJOMCc"
             },
             "workflowInputs": {
+              "mappingMode": "defineBelow",
               "value": {
                 "action": "confirm_from_reminder",
                 "phone": "={{ $fromAI('phone', 'Telefono del paciente', 'string') }}",
                 "appointment_id": "={{ $fromAI('appointment_id', 'UUID de la cita del recordatorio', 'string') }}",
-                "response": "={{ $fromAI('response', 'Respuesta: confirm, cancel o reschedule', 'string') }}"
+                "response": "={{ $fromAI('response', 'Respuesta: confirm, cancel o reschedule', 'string') }}",
+                "clinic_id": "={{ $('Preparar Contexto').first().json.clinic_id }}",
+                "django_auth_header": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
               },
+              "matchingColumns": [],
               "schema": [
                 {
                   "id": "action",
@@ -1370,10 +1543,26 @@
                   "displayName": "response",
                   "defaultMatch": false,
                   "canBeUsedToMatch": true
+                },
+                {
+                  "id": "clinic_id",
+                  "type": "string",
+                  "display": true,
+                  "required": true,
+                  "displayName": "clinic_id",
+                  "defaultMatch": false,
+                  "canBeUsedToMatch": true
+                },
+                {
+                  "id": "django_auth_header",
+                  "type": "string",
+                  "display": true,
+                  "required": true,
+                  "displayName": "django_auth_header",
+                  "defaultMatch": false,
+                  "canBeUsedToMatch": true
                 }
               ],
-              "mappingMode": "defineBelow",
-              "matchingColumns": [],
               "attemptToConvertTypes": false,
               "convertFieldsToString": false
             }
@@ -1435,12 +1624,21 @@
           "parameters": {
             "method": "POST",
             "url": "={{ $env.DJANGO_API_URL }}/api/agent/errors/",
-            "authentication": "genericCredentialType",
+            "authentication": "none",
             "genericAuthType": "httpHeaderAuth",
             "sendBody": true,
             "specifyBody": "json",
             "jsonBody": "={\n  \"workflow\": \"{{ $workflow.id }}\",\n  \"workflow_name\": \"{{ $workflow.name }}\",\n  \"node_name\": \"{{ $json.execution.error.node.name }}\",\n  \"error_message\": \"{{ $json.execution.error.message }}\",\n  \"phone\": \"{{ $json.execution.customData.phone || '' }}\",\n  \"payload\": {{ JSON.stringify($json) }}\n}",
-            "options": {}
+            "options": {},
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "={{ $json.execution.customData.django_auth_header || '' }}"
+                }
+              ]
+            }
           },
           "id": "c283d751-01ee-4999-8185-f5376ba5ba9f",
           "name": "Post Agent Error",
@@ -1450,12 +1648,7 @@
             480,
             1008
           ],
-          "credentials": {
-            "httpHeaderAuth": {
-              "id": "4582aNhH2U92BzV4",
-              "name": "Django Auth"
-            }
-          }
+          "credentials": {}
         },
         {
           "parameters": {
@@ -1509,7 +1702,7 @@
         {
           "parameters": {
             "url": "={{ $env.DJANGO_API_URL }}/api/patients/",
-            "authentication": "genericCredentialType",
+            "authentication": "none",
             "genericAuthType": "httpHeaderAuth",
             "sendQuery": true,
             "queryParameters": {
@@ -1520,7 +1713,16 @@
                 }
               ]
             },
-            "options": {}
+            "options": {},
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+                }
+              ]
+            }
           },
           "id": "buscar-paciente-django",
           "name": "Buscar Paciente",
@@ -1530,12 +1732,7 @@
             1024,
             352
           ],
-          "credentials": {
-            "httpHeaderAuth": {
-              "id": "4582aNhH2U92BzV4",
-              "name": "Django Auth"
-            }
-          },
+          "credentials": {},
           "onError": "continueRegularOutput"
         },
         {
@@ -1564,8 +1761,9 @@
               "value": {
                 "action": "={{ $fromAI('action', 'Accion requerida: check_availability | create | cancel | reschedule | list_upcoming | register_patient | confirm_from_reminder | list_services | list_professionals | get_professional_slots | get_appointments_by_professional', 'string') }}",
                 "phone": "={{ $fromAI('phone', 'Telefono del paciente en formato internacional ej +34612345678', 'string') }}",
-                "clinic_id": "={{ $fromAI('clinic_id', 'ID de la clinica, siempre usar clinic-test', 'string') }}",
-                "params": "={{ $fromAI('params', 'JSON string con parametros opcionales segun la accion. Ejemplos: para create usar {\"service\":\"Consulta\", \"professional\": \"Manuel\",\"preferred_date\":\"2026-04-20\",\"preferred_time\":\"10:00\",\"first_name\":\"Juan\",\"last_name\":\"Garcia\",\"email\":\"juan@mail.com\"}. Para cancel usar {\"appointment_id\":\"uuid\"}. Para get_professional_slots usar {\"professional_id\":\"1\",\"date\":\"2026-04-20\",\"duration\":30}. Para check_availability usar {\"service\":\"Consulta\",\"preferred_date\":\"2026-04-20\"}. Si no hay parametros opcionales pasar {}', 'string') }}"
+                "clinic_id": "={{ $('Preparar Contexto').first().json.clinic_id }}",
+                "params": "={{ $fromAI('params', 'JSON string con parametros opcionales segun la accion. Ejemplos: para create usar {\"service\":\"Consulta\", \"professional\": \"Manuel\",\"preferred_date\":\"2026-04-20\",\"preferred_time\":\"10:00\",\"first_name\":\"Juan\",\"last_name\":\"Garcia\",\"email\":\"juan@mail.com\"}. Para cancel usar {\"appointment_id\":\"uuid\"}. Para get_professional_slots usar {\"professional_id\":\"1\",\"date\":\"2026-04-20\",\"duration\":30}. Para check_availability usar {\"service\":\"Consulta\",\"preferred_date\":\"2026-04-20\"}. Si no hay parametros opcionales pasar {}', 'string') }}",
+                "django_auth_header": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
               },
               "matchingColumns": [],
               "schema": [
@@ -1604,6 +1802,15 @@
                   "displayName": "params",
                   "defaultMatch": false,
                   "canBeUsedToMatch": true
+                },
+                {
+                  "id": "django_auth_header",
+                  "type": "string",
+                  "display": true,
+                  "required": true,
+                  "displayName": "django_auth_header",
+                  "defaultMatch": false,
+                  "canBeUsedToMatch": true
                 }
               ],
               "attemptToConvertTypes": false,
@@ -1623,12 +1830,21 @@
           "parameters": {
             "method": "PATCH",
             "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/{{ $('Cargar Sesion').first().json.results[0].id }}/",
-            "authentication": "genericCredentialType",
+            "authentication": "none",
             "genericAuthType": "httpHeaderAuth",
             "sendBody": true,
             "specifyBody": "json",
             "jsonBody": "={\n  \"last_interaction\": \"{{ $now.toISO() }}\"\n}",
-            "options": {}
+            "options": {},
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+                }
+              ]
+            }
           },
           "id": "aabb1122-ccdd-3344-eeff-556677889900",
           "name": "Actualizar Sesion",
@@ -1638,24 +1854,28 @@
             1760,
             192
           ],
-          "credentials": {
-            "httpHeaderAuth": {
-              "id": "4582aNhH2U92BzV4",
-              "name": "Django Auth"
-            }
-          },
+          "credentials": {},
           "onError": "continueRegularOutput"
         },
         {
           "parameters": {
             "method": "POST",
             "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
-            "authentication": "genericCredentialType",
+            "authentication": "none",
             "genericAuthType": "httpHeaderAuth",
             "sendBody": true,
             "specifyBody": "json",
-            "jsonBody": "={\n  \"clinic\": \"{{ $('Normalizar Mensaje').first().json.clinic_id }}\",\n  \"phone\": \"{{ $('Normalizar Mensaje').first().json.phone }}\",\n  \"session_data\": {}\n}",
-            "options": {}
+            "jsonBody": "={\n  \"clinic\": \"{{ $('Preparar Contexto').first().json.clinic_id }}\",\n  \"phone\": \"{{ $('Normalizar Mensaje').first().json.phone }}\",\n  \"session_data\": {}\n}",
+            "options": {},
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+                }
+              ]
+            }
           },
           "id": "11223344-5566-7788-99aa-bbccddeeff00",
           "name": "Crear Sesion",
@@ -1665,24 +1885,28 @@
             1776,
             512
           ],
-          "credentials": {
-            "httpHeaderAuth": {
-              "id": "4582aNhH2U92BzV4",
-              "name": "Django Auth"
-            }
-          },
+          "credentials": {},
           "onError": "continueRegularOutput"
         },
         {
           "parameters": {
             "method": "PATCH",
             "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/{{ $('Preparar Contexto Agente').first().json.session_id }}/",
-            "authentication": "genericCredentialType",
+            "authentication": "none",
             "genericAuthType": "httpHeaderAuth",
             "sendBody": true,
             "specifyBody": "json",
             "jsonBody": "={\n  \"session_data\": {{ JSON.stringify({ last_message: $('Preparar Contexto Agente').first().json.chatInput, last_response: ($('Agente IA Clinica').first().json.output || '').substring(0, 500) }) }},\n  \"last_interaction\": \"{{ $now.toISO() }}\"\n}",
-            "options": {}
+            "options": {},
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "={{ $('Preparar Contexto').first().json.django_auth_header }}"
+                }
+              ]
+            }
           },
           "id": "guardar-sesion-post-ia",
           "name": "Guardar Sesion Post-IA",
@@ -1692,26 +1916,21 @@
             3152,
             560
           ],
-          "credentials": {
-            "httpHeaderAuth": {
-              "id": "4582aNhH2U92BzV4",
-              "name": "Django Auth"
-            }
-          },
+          "credentials": {},
           "continueOnFail": true
         },
         {
           "parameters": {
             "method": "POST",
-            "url": "=https://waapi.app/api/v1/instances/{{ $('Preparar Contexto Agente').first().json.phone_number_id }}/client/action/send-message",
-            "authentication": "genericCredentialType",
+            "url": "={{ $('Preparar Contexto').first().json.whatsapp_api_url }}/{{ $('Preparar Contexto').first().json.whatsapp_phone_number_id }}/client/action/send-message",
+            "authentication": "none",
             "genericAuthType": "httpHeaderAuth",
             "sendBody": true,
             "bodyParameters": {
               "parameters": [
                 {
                   "name": "chatId",
-                  "value": "34644572083@c.us"
+                  "value": "={{ $('Normalizar Mensaje').first().json.phone }}@c.us"
                 },
                 {
                   "name": "message",
@@ -1719,7 +1938,16 @@
                 }
               ]
             },
-            "options": {}
+            "options": {},
+            "sendHeaders": true,
+            "headerParameters": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "=Bearer {{ $('Preparar Contexto').first().json.whatsapp_token }}"
+                }
+              ]
+            }
           },
           "id": "enviar-msg-whatsapp",
           "name": "Enviar Mensaje WhatsApp",
@@ -1729,12 +1957,7 @@
             3440,
             352
           ],
-          "credentials": {
-            "httpHeaderAuth": {
-              "id": "zh53olyJG7CS8Klu",
-              "name": "Wapi Auth"
-            }
-          },
+          "credentials": {},
           "continueOnFail": true
         },
         {
@@ -1764,6 +1987,55 @@
           ],
           "id": "3d65d3bd-d2e8-4e4c-adc4-9e757a07cb4b",
           "name": "antiguo codigo normalize"
+        },
+        {
+          "id": "cargar-config-clinica",
+          "name": "Cargar Config Clínica",
+          "type": "n8n-nodes-base.executeWorkflow",
+          "typeVersion": 1.3,
+          "position": [
+            700,
+            192
+          ],
+          "parameters": {
+            "workflowId": {
+              "__rl": true,
+              "value": "InRZ0YJoQ0BehxyJ",
+              "mode": "id"
+            },
+            "workflowInputs": {
+              "mappingMode": "defineBelow",
+              "value": {
+                "phone_number_id": "={{ $json.phone_number_id }}"
+              },
+              "matchingColumns": [],
+              "schema": [
+                {
+                  "id": "phone_number_id",
+                  "displayName": "phone_number_id",
+                  "required": false,
+                  "defaultMatch": false,
+                  "display": true,
+                  "type": "string",
+                  "canBeUsedToMatch": true
+                }
+              ]
+            },
+            "options": {}
+          }
+        },
+        {
+          "id": "preparar-contexto",
+          "name": "Preparar Contexto",
+          "type": "n8n-nodes-base.code",
+          "typeVersion": 2,
+          "position": [
+            960,
+            192
+          ],
+          "parameters": {
+            "jsCode": "const msg = $('Normalizar Mensaje').first().json;\nconst config = $input.first().json;\n\nconst result = Object.assign({}, msg, {\n  clinic_id: config.clinic_id,\n  clinic_name: config.name,\n  clinic_timezone: config.timezone,\n  django_auth_header: config.django_auth_header,\n  whatsapp_phone_number_id: config.whatsapp_phone_number_id,\n  whatsapp_token: config.whatsapp_token,\n  whatsapp_api_url: config.whatsapp_api_url\n});\n\n$execution.customData.set('django_auth_header', config.django_auth_header);\n\nreturn [{ json: result }];"
+          }
         }
       ],
       "connections": {
@@ -1772,17 +2044,6 @@
             [
               {
                 "node": "Normalizar Mensaje",
-                "type": "main",
-                "index": 0
-              }
-            ]
-          ]
-        },
-        "Normalizar Mensaje": {
-          "main": [
-            [
-              {
-                "node": "Es Mensaje Texto?",
                 "type": "main",
                 "index": 0
               }
@@ -2015,6 +2276,39 @@
           "main": [
             []
           ]
+        },
+        "Normalizar Mensaje": {
+          "main": [
+            [
+              {
+                "node": "Cargar Config Clínica",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Cargar Config Clínica": {
+          "main": [
+            [
+              {
+                "node": "Preparar Contexto",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Preparar Contexto": {
+          "main": [
+            [
+              {
+                "node": "Es Mensaje Texto?",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
         }
       },
       "authors": "devs cool",
@@ -2023,18 +2317,18 @@
       "autosaved": false,
       "workflowPublishHistory": [
         {
-          "createdAt": "2026-04-16T00:59:17.659Z",
-          "id": 182,
+          "createdAt": "2026-05-04T02:22:47.927Z",
+          "id": 191,
           "workflowId": "zG25BeZcZydZwM9f",
-          "versionId": "6ed27e72-8860-4570-b711-3dd38604302d",
+          "versionId": "f491b0c5-8b49-471e-ae99-4c86bf1b4248",
           "event": "deactivated",
           "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
         },
         {
-          "createdAt": "2026-04-16T00:59:17.756Z",
-          "id": 183,
+          "createdAt": "2026-05-04T02:22:48.108Z",
+          "id": 192,
           "workflowId": "zG25BeZcZydZwM9f",
-          "versionId": "6ed27e72-8860-4570-b711-3dd38604302d",
+          "versionId": "f491b0c5-8b49-471e-ae99-4c86bf1b4248",
           "event": "activated",
           "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
         }

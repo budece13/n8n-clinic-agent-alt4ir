@@ -1,12 +1,10 @@
 {
-  "updatedAt": "2026-04-11T03:35:00.000Z",
-  "createdAt": "2026-04-09T19:03:13.976Z",
   "id": "YJFyPtkcDPM4XXXB",
   "name": "WA-Clinic-Info-RAG",
   "active": true,
   "nodes": [
     {
-      "parameters": { "inputSource": "passthrough" },
+      "parameters": {"inputSource": "passthrough"},
       "id": "trigger",
       "name": "Trigger - Execute Workflow",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
@@ -16,81 +14,64 @@
     {
       "parameters": {
         "url": "={{ $env.DJANGO_API_URL }}/api/clinics/{{ $json.clinic_id }}/",
-        "authentication": "genericCredentialType",
+        "authentication": "none",
         "genericAuthType": "httpHeaderAuth",
-        "options": {}
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Authorization", "value": "={{ $('Trigger - Execute Workflow').first().json.django_auth_header }}"}]
+        }
       },
       "id": "datos-clinica",
       "name": "Obtener Datos Clinica",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [304, 400],
-      "credentials": { "httpHeaderAuth": { "id": "4582aNhH2U92BzV4", "name": "Django Auth" } },
-      "continueOnFail": true
-    },
-    {
-      "parameters": {
-        "url": "={{ $env.DJANGO_API_URL }}/api/services/",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            { "name": "clinic", "value": "={{ $('Trigger - Execute Workflow').first().json.clinic_id }}" },
-            { "name": "is_active", "value": "true" }
-          ]
-        },
-        "options": {}
-      },
-      "id": "cargar-servicios",
-      "name": "Cargar Servicios Clinica",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [608, 400],
-      "credentials": { "httpHeaderAuth": { "id": "4582aNhH2U92BzV4", "name": "Django Auth" } },
+      "credentials": {},
       "continueOnFail": true
     },
     {
       "parameters": {
         "url": "={{ $env.DJANGO_API_URL }}/api/knowledge/entries/",
-        "authentication": "genericCredentialType",
+        "authentication": "none",
         "genericAuthType": "httpHeaderAuth",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "clinic", "value": "={{ $('Trigger - Execute Workflow').first().json.clinic_id }}" },
-            { "name": "active", "value": "true" }
+            {"name": "clinic", "value": "={{ $('Trigger - Execute Workflow').first().json.clinic_id }}"},
+            {"name": "active", "value": "true"}
           ]
         },
-        "options": {}
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{"name": "Authorization", "value": "={{ $('Trigger - Execute Workflow').first().json.django_auth_header }}"}]
+        }
       },
       "id": "cargar-kb",
-      "name": "Cargar Knowledge Base Django",
+      "name": "Cargar Knowledge Base",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [912, 400],
-      "credentials": { "httpHeaderAuth": { "id": "4582aNhH2U92BzV4", "name": "Django Auth" } },
+      "position": [608, 400],
+      "credentials": {},
       "continueOnFail": true
     },
     {
       "parameters": {
-        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\n\n// Knowledge Base\nlet kbEntries = [];\ntry {\n  const kbRaw = $('Cargar Knowledge Base Django').first().json;\n  kbEntries = kbRaw.results || (Array.isArray(kbRaw) ? kbRaw : []);\n} catch(e) {}\n\n// Servicios\nlet servicios = [];\ntry {\n  const svcRaw = $('Cargar Servicios Clinica').first().json;\n  servicios = svcRaw.results || (Array.isArray(svcRaw) ? svcRaw : []);\n} catch(e) {}\n\n// Datos clínica\nlet clinica = {};\ntry {\n  clinica = $('Obtener Datos Clinica').first().json;\n} catch(e) {}\n\n// Formatear KB como contexto\nconst kbContext = kbEntries.map(e => `Q: ${e.question || e.title}\\nA: ${e.answer || e.content}`).join('\\n\\n');\n\n// Formatear servicios\nconst svcContext = servicios.map(s => `- ${s.name}: ${s.description || ''} (${s.duration_minutes || '?'} min, ${s.price || '?'}€)`).join('\\n');\n\nconst context = `CLINICA: ${clinica.name || 'Clínica'}\\nTELEFONO: ${clinica.phone || 'No disponible'}\\nDIRECCION: ${clinica.address || 'No disponible'}\\n\\nSERVICIOS DISPONIBLES:\\n${svcContext || 'No hay servicios cargados.'}\\n\\nPREGUNTAS FRECUENTES:\\n${kbContext || 'No hay FAQ cargadas.'}`;\n\nreturn [{ json: {\n  question: trigger.question,\n  clinic_id: trigger.clinic_id,\n  context: context,\n  has_kb: kbEntries.length > 0,\n  has_services: servicios.length > 0\n}}];"
+        "jsCode": "const trigger = $('Trigger - Execute Workflow').first().json;\n\n// Knowledge Base\nlet kbEntries = [];\ntry {\n  const kbRaw = $('Cargar Knowledge Base').first().json;\n  kbEntries = kbRaw.results || (Array.isArray(kbRaw) ? kbRaw : []);\n} catch(e) {}\n\n// Datos clínica\nlet clinica = {};\ntry {\n  clinica = $('Obtener Datos Clinica').first().json;\n} catch(e) {}\n\n// Formatear KB como contexto\nconst kbContext = kbEntries.map(e => `Q: ${e.question || e.title}\\nA: ${e.answer || e.content}`).join('\\n\\n');\n\nconst context = `CLINICA: ${clinica.name || 'Clínica'}\\nTELEFONO: ${clinica.phone || 'No disponible'}\\nDIRECCION: ${clinica.address || 'No disponible'}\\n\\nINFORMACION GENERAL:\\n${clinica.description || ''}\\n\\nPREGUNTAS FRECUENTES:\\n${kbContext || 'No hay FAQ cargadas.'}`;\n\nreturn [{ json: {\n  question: trigger.question,\n  clinic_id: trigger.clinic_id,\n  context: context,\n  has_kb: kbEntries.length > 0\n}}];"
       },
       "id": "combinar-contexto",
       "name": "Combinar Contexto Clinica",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1216, 400]
+      "position": [912, 400]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
-          "combinator": "or",
-          "conditions": [
-            { "operator": { "type": "boolean", "operation": "true", "singleValue": true }, "leftValue": "={{ $json.has_kb }}" },
-            { "operator": { "type": "boolean", "operation": "true", "singleValue": true }, "leftValue": "={{ $json.has_services }}" }
-          ]
+          "options": {"version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
+          "combinator": "and",
+          "conditions": [{"operator": {"type": "boolean", "operation": "true", "singleValue": true}, "leftValue": "={{ $json.has_kb }}", "id": "condition-1776272439877-blmc6m6ru"}]
         },
         "options": {}
       },
@@ -98,7 +79,7 @@
       "name": "¿Tiene Datos para Responder?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1520, 400]
+      "position": [1216, 400]
     },
     {
       "parameters": {
@@ -109,7 +90,7 @@
       "name": "Generar Respuesta con Contexto",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.4,
-      "position": [1824, 304]
+      "position": [1520, 304]
     },
     {
       "parameters": {
@@ -119,7 +100,7 @@
       "name": "Respuesta por Defecto",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1824, 608]
+      "position": [1520, 608]
     },
     {
       "parameters": {
@@ -129,7 +110,7 @@
       "name": "Devolver Respuesta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2128, 304]
+      "position": [1824, 304]
     },
     {
       "parameters": {},
@@ -143,8 +124,8 @@
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "a1", "name": "workflow", "value": "WA-Clinic-Info-RAG", "type": "string" },
-            { "id": "a2", "name": "error", "value": "={{ $json.execution?.error?.message || '' }}", "type": "string" }
+            {"id": "a1", "name": "workflow", "value": "WA-Clinic-Info-RAG", "type": "string"},
+            {"id": "a2", "name": "error", "value": "={{ $json.execution?.error?.message || '' }}", "type": "string"}
           ]
         },
         "options": {}
@@ -157,61 +138,39 @@
     },
     {
       "parameters": {
-        "content": "## WA-Clinic-Info-RAG\n\nCarga SECUENCIAL: Clinica → Servicios → KB → Combinar\nEliminadas las ramas paralelas sin conexión saliente.\nAhora solo 'Devolver Respuesta' y 'Respuesta por Defecto'\nson nodos terminales → toolWorkflow v2 recibe el output correcto.\n\nCampo 'output' requerido por toolWorkflow v2 (no 'response').",
-        "height": 280,
-        "width": 420
+        "model": {"__rl": true, "value": "gpt-4o-mini", "mode": "list", "cachedResultName": "gpt-4o-mini"},
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [1520, 464],
+      "id": "52291157-eb23-4e19-926c-e38b937055ea",
+      "name": "OpenAI Chat Model",
+      "credentials": {"openAiApi": {"id": "AB3p940X8jMCzP7Y", "name": "OpenAi Devs"}}
+    },
+    {
+      "parameters": {
+        "content": "## WA-Clinic-Info-RAG\n\nSolo responde a entradas de información estática desde la Base de Conocimiento.\n\nCarga secuencial: Clinica → KB → Combinar\nAsí solo Devolver Respuesta es nodo terminal.\n\nCampo output requerido por toolWorkflow v2.",
+        "height": 184,
+        "width": 400
       },
       "id": "nota-desc",
       "name": "Nota - Descripcion Workflow",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [-352, -48]
-    },
-    {
-      "parameters": {
-        "model": { "__rl": true, "value": "gpt-4o-mini", "mode": "list", "cachedResultName": "gpt-4o-mini" },
-        "builtInTools": {},
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [1824, 464],
-      "id": "52291157-eb23-4e19-926c-e38b937055ea",
-      "name": "OpenAI Chat Model",
-      "credentials": { "openAiApi": { "id": "AB3p940X8jMCzP7Y", "name": "OpenAi Devs" } }
     }
   ],
   "connections": {
-    "Trigger - Execute Workflow": {
-      "main": [[{ "node": "Obtener Datos Clinica", "type": "main", "index": 0 }]]
-    },
-    "Obtener Datos Clinica": {
-      "main": [[{ "node": "Cargar Servicios Clinica", "type": "main", "index": 0 }]]
-    },
-    "Cargar Servicios Clinica": {
-      "main": [[{ "node": "Cargar Knowledge Base Django", "type": "main", "index": 0 }]]
-    },
-    "Cargar Knowledge Base Django": {
-      "main": [[{ "node": "Combinar Contexto Clinica", "type": "main", "index": 0 }]]
-    },
-    "Combinar Contexto Clinica": {
-      "main": [[{ "node": "¿Tiene Datos para Responder?", "type": "main", "index": 0 }]]
-    },
-    "¿Tiene Datos para Responder?": {
-      "main": [
-        [{ "node": "Generar Respuesta con Contexto", "type": "main", "index": 0 }],
-        [{ "node": "Respuesta por Defecto", "type": "main", "index": 0 }]
-      ]
-    },
-    "Generar Respuesta con Contexto": {
-      "main": [[{ "node": "Devolver Respuesta", "type": "main", "index": 0 }]]
-    },
-    "Error Trigger Global": {
-      "main": [[{ "node": "Error - Log Temporal", "type": "main", "index": 0 }]]
-    },
-    "OpenAI Chat Model": {
-      "ai_languageModel": [[{ "node": "Generar Respuesta con Contexto", "type": "ai_languageModel", "index": 0 }]]
-    }
+    "Trigger - Execute Workflow": {"main": [[{"node": "Obtener Datos Clinica", "type": "main", "index": 0}]]},
+    "Obtener Datos Clinica": {"main": [[{"node": "Cargar Knowledge Base", "type": "main", "index": 0}]]},
+    "Cargar Knowledge Base": {"main": [[{"node": "Combinar Contexto Clinica", "type": "main", "index": 0}]]},
+    "Combinar Contexto Clinica": {"main": [[{"node": "¿Tiene Datos para Responder?", "type": "main", "index": 0}]]},
+    "¿Tiene Datos para Responder?": {"main": [[{"node": "Generar Respuesta con Contexto", "type": "main", "index": 0}], [{"node": "Respuesta por Defecto", "type": "main", "index": 0}]]},
+    "Generar Respuesta con Contexto": {"main": [[{"node": "Devolver Respuesta", "type": "main", "index": 0}]]},
+    "Error Trigger Global": {"main": [[{"node": "Error - Log Temporal", "type": "main", "index": 0}]]},
+    "OpenAI Chat Model": {"ai_languageModel": [[{"node": "Generar Respuesta con Contexto", "type": "ai_languageModel", "index": 0}]]}
   },
   "settings": {
     "executionOrder": "v1",
