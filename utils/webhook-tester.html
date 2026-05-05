@@ -593,7 +593,7 @@
               wa_id: phone
             }],
             metadata: {
-              phone_number_id: "test-phone-id"
+              phone_number_id: "123456789"
             }
           }
         }]
@@ -723,39 +723,64 @@
     try {
       const useProxy = document.getElementById('corsProxy').checked;
       const proxyType = document.getElementById('proxySelect').value;
-      let fetchUrl = url;
+
       const fetchOpts = {
         method,
         headers: getHeaders(),
       };
-
-      if (useProxy) {
-        if (proxyType === 'corsproxy') {
-          fetchUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
-        } else if (proxyType === 'allorigins') {
-          // allorigins only supports GET via its API, so we use corsproxy as primary
-          fetchUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
-        }
-      }
-
       if (['POST','PUT','PATCH'].includes(method) && body) {
         fetchOpts.body = body;
       }
 
-      const response = await fetch(fetchUrl, fetchOpts);
-      const elapsed = Math.round(performance.now() - startTime);
+      async function decompress(buffer) {
+        const uint8 = new Uint8Array(buffer);
+        for (const fmt of ['gzip', 'deflate', 'deflate-raw']) {
+          try {
+            const ds = new DecompressionStream(fmt);
+            const w = ds.writable.getWriter();
+            w.write(new Uint8Array(uint8));
+            w.close();
+            const out = await new Response(ds.readable).arrayBuffer();
+            const text = new TextDecoder('utf-8').decode(out);
+            if (text.length > 0) return text;
+          } catch {}
+        }
+        return null;
+      }
 
-      let responseText;
-      const contentType = response.headers.get('content-type') || '';
+      async function readResponse(response) {
+        const buffer = await response.arrayBuffer();
+        const plain = new TextDecoder('utf-8').decode(buffer);
+        if (!plain.includes('�') && (plain.startsWith('{') || plain.startsWith('[') || plain.startsWith('<') || plain.trim().length === 0)) {
+          return plain;
+        }
+        return await decompress(buffer) ?? plain;
+      }
 
+      let response;
+      let contentType = '';
+
+      // Intenta directo primero (n8n permite CORS en producción); si falla, usa el proxy
       try {
-        responseText = await response.text();
+        response = await fetch(url, fetchOpts);
+        contentType = response.headers.get('content-type') || '';
+      } catch (directErr) {
+        if (!useProxy) throw directErr;
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+        response = await fetch(proxyUrl, fetchOpts);
+        contentType = response.headers.get('content-type') || '';
+      }
+
+      const elapsed = Math.round(performance.now() - startTime);
+      let responseText;
+      try {
+        responseText = await readResponse(response);
       } catch (e) {
-        responseText = '[No se pudo leer el body]';
+        responseText = '[No se pudo leer el body: ' + e.message + ']';
       }
 
       removeLoading(loadingId);
-      addResponseMsg(response.status, response.statusText, responseText, elapsed);
+      addResponseMsg(response.status, response.statusText, responseText, elapsed, contentType);
 
     } catch (err) {
       const elapsed = Math.round(performance.now() - startTime);
@@ -819,30 +844,48 @@
     if (el) el.remove();
   }
 
-  function addResponseMsg(status, statusText, body, elapsed) {
+  function addResponseMsg(status, statusText, body, elapsed, contentType) {
     const time = now();
     const statusClass = status >= 500 ? 'status-5xx' :
                         status >= 400 ? 'status-4xx' :
                         status >= 300 ? 'status-3xx' : 'status-2xx';
     const isError = status >= 400;
+    const isHtmlResponse = body && body.trim().startsWith('<');
+    const ctLabel = contentType ? `<span style="font-size:10px;color:var(--text-dim);font-family:var(--mono)">${esc(contentType.split(';')[0])}</span>` : '';
+    const warnHtml = isHtmlResponse ? `<div style="color:var(--yellow);font-size:11px;margin-bottom:8px">⚠ El proxy devolvió HTML. Prueba sin proxy o cambia el proxy.</div>` : '';
 
+    const uid = 'r' + Date.now();
     const html = `
       <div class="msg res ${isError ? 'error' : ''}">
         <div class="msg-meta">
           <span class="msg-label">↓ Respuesta</span>
           <span class="status-badge ${statusClass}">${status} ${statusText}</span>
           <span>${elapsed}ms</span>
-          <span style="margin-left:auto">${time}</span>
+          ${ctLabel}
+          <button onclick="toggleRawView('${uid}')" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:5px;cursor:pointer;">RAW</button>
+          <span style="color:var(--text-dim)">${time}</span>
         </div>
-        <div class="msg-body">
+        <div class="msg-body" id="fmt-${uid}">
           <button class="copy-btn" onclick="copyRaw(this)" title="Copiar">📋</button>
           <span class="raw-content" style="display:none">${esc(body)}</span>
+          ${warnHtml}
           ${body ? formatJson(body) : '<em style="color:var(--text-dim)">respuesta vacía</em>'}
         </div>
+        <pre id="raw-${uid}" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:11px;line-height:1.6;overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin-top:4px;color:var(--text)"></pre>
       </div>
     `;
     messagesArea.insertAdjacentHTML('beforeend', html);
+    // Set raw text via textContent to avoid any encoding issues
+    document.getElementById('raw-' + uid).textContent = body || '';
     scrollBottom();
+  }
+
+  function toggleRawView(uid) {
+    const fmt = document.getElementById('fmt-' + uid);
+    const raw = document.getElementById('raw-' + uid);
+    const isRaw = raw.style.display !== 'none';
+    fmt.style.display = isRaw ? '' : 'none';
+    raw.style.display = isRaw ? 'none' : '';
   }
 
   function addErrorMsg(message, elapsed) {
