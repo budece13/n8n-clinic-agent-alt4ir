@@ -1,105 +1,120 @@
 {
+  "updatedAt": "2026-05-05T22:20:13.665Z",
+  "createdAt": "2026-05-04T02:01:11.387Z",
   "id": "InRZ0YJoQ0BehxyJ",
   "name": "WA-Agent-Config-Loader",
   "active": true,
   "nodes": [
     {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
       "id": "trigger",
       "name": "Trigger - Execute Workflow",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [0, 300],
-      "parameters": {"inputSource": "passthrough"}
+      "position": [
+        0,
+        304
+      ]
     },
     {
-      "id": "resolver-clinica",
-      "name": "Resolver Clínica por Phone Number ID",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [300, 300],
       "parameters": {
         "url": "={{ $env.DJANGO_API_URL }}/api/clinics/agent-config/",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendQuery": true,
         "queryParameters": {
-          "parameters": [{"name": "phone_number_id", "value": "={{ $json.phone_number_id }}"}]
+          "parameters": [
+            {
+              "name": "phone_number_id",
+              "value": "={{ $json.phone_number_id }}"
+            }
+          ]
         },
         "options": {}
       },
+      "id": "resolver-clinica",
+      "name": "Resolver Clínica por Phone Number ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        304,
+        304
+      ],
       "credentials": {
-        "httpHeaderAuth": {"id": "f3MP3tIXyza6A1BO", "name": "Django Agent Master Key"}
+        "httpHeaderAuth": {
+          "id": "f3MP3tIXyza6A1BO",
+          "name": "Django Agent Master Key"
+        }
       },
       "onError": "continueRegularOutput"
     },
     {
+      "parameters": {
+        "jsCode": "const pnid = $('Trigger - Execute Workflow').first().json.phone_number_id;\nconst item = $input.first();\n\nif (item.error) {\n  throw new Error('Error al contactar Django para phone_number_id: ' + pnid);\n}\n\nconst data = item.json;\n\nif (data.detail || data.error) {\n  throw new Error('Error de Django para phone_number_id: ' + pnid + '. Detalle: ' + JSON.stringify(data.detail || data.error));\n}\n\nconst required = ['clinic_id', 'agent_api_key', 'whatsapp_phone_number_id', 'whatsapp_token'];\nconst missing = required.filter(function(f) { return !data[f]; });\n\nif (missing.length > 0) {\n  throw new Error('Config incompleta para phone_number_id: ' + pnid + '. Campos faltantes: ' + missing.join(', '));\n}\n\nreturn [{ json: data }];"
+      },
       "id": "validar-config",
       "name": "Validar Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [600, 300],
-      "parameters": {
-        "jsCode": "const pnid = $('Trigger - Execute Workflow').first().json.phone_number_id;\nconst item = $input.first();\n\nif (item.error) {\n  throw new Error('Error al contactar Django para phone_number_id: ' + pnid);\n}\n\nconst data = item.json;\n\nif (data.detail || data.error) {\n  throw new Error('Error de Django para phone_number_id: ' + pnid + '. Detalle: ' + (data.detail || data.error));\n}\n\nconst required = ['clinic_id', 'agent_api_key', 'whatsapp_phone_number_id', 'whatsapp_token'];\nconst missing = required.filter(function(f) { return !data[f]; });\n\nif (missing.length > 0) {\n  throw new Error('Config incompleta para phone_number_id: ' + pnid + '. Campos faltantes: ' + missing.join(', '));\n}\n\nreturn [{ json: data }];"
-      }
+      "position": [
+        608,
+        304
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst result = Object.assign({}, data, {\n  django_auth_header: 'Api-Key ' + data.agent_api_key,\n  whatsapp_api_url: $env.WHATSAPP_API_URL || ''\n});\nreturn [{ json: result }];"
+      },
       "id": "devolver-config",
       "name": "Devolver Config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [900, 300],
-      "parameters": {
-        "jsCode": "const data = $input.first().json;\nconst result = Object.assign({}, data, {\n  django_auth_header: 'Api-Key ' + data.agent_api_key,\n  whatsapp_api_url: $env.WHATSAPP_API_URL || ''\n});\nreturn [{ json: result }];"
-      }
+      "position": [
+        912,
+        304
+      ]
     },
     {
+      "parameters": {},
       "id": "error-trigger",
       "name": "Error Trigger Global",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
-      "position": [0, 600],
-      "parameters": {}
+      "position": [
+        0,
+        608
+      ]
     },
     {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "workflow",
+              "value": "WA-Agent-Config-Loader",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "error",
+              "value": "={{ $json.error || \"\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
       "id": "error-log",
       "name": "Error - Log Temporal",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [300, 600],
-      "parameters": {
-        "mode": "manual",
-        "assignments": {
-          "assignments": [
-            {"id": "a1", "name": "workflow", "value": "WA-Agent-Config-Loader", "type": "string"},
-            {"id": "a2", "name": "error", "value": "={{ $json.error || '' }}", "type": "string"}
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "nota-desc",
-      "name": "Nota - Descripcion Workflow",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [-320, 0],
-      "parameters": {
-        "content": "## WA-Agent-Config-Loader\n\nDado un phone_number_id, resuelve la clínica y devuelve su config completa desde Django.\n\n### Input\n- phone_number_id: string (del webhook entrante)\n\n### Output\n- Todos los campos de /api/clinics/agent-config/\n- django_auth_header: 'Api-Key ' + agent_api_key\n- whatsapp_api_url: $env.WHATSAPP_API_URL\n\n### Credencial usada\n- Django Agent Master Key (SOLO este workflow)\n\n### Restricciones\n- NUNCA hardcodear AGENT_MASTER_API_KEY\n- En caso de error, el orquestador responde al paciente con mensaje genérico",
-        "height": 350,
-        "width": 450
-      }
+      "position": [
+        304,
+        608
+      ]
     }
-  ],
-  "connections": {
-    "Trigger - Execute Workflow": {"main": [[{"node": "Resolver Clínica por Phone Number ID", "type": "main", "index": 0}]]},
-    "Resolver Clínica por Phone Number ID": {"main": [[{"node": "Validar Config", "type": "main", "index": 0}]]},
-    "Validar Config": {"main": [[{"node": "Devolver Config", "type": "main", "index": 0}]]},
-    "Error Trigger Global": {"main": [[{"node": "Error - Log Temporal", "type": "main", "index": 0}]]}
-  },
-  "settings": {
-    "executionOrder": "v1",
-    "timezone": "Europe/Madrid",
-    "saveDataErrorExecution": "all",
-    "callerPolicy": "workflowsFromSameOwner"
-  }
+  ]
 }
