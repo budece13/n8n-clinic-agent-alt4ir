@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: "Pruebas del agente dental (n8n) - cobertura de intenciones single-turn"
+
+providers:
+  - id: "https://n8n.alt4ir.online/webhook/whatsapp-inbound"
+    label: "agente-dental-prod"
+    config:
+      method: POST
+      headers:
+        Content-Type: application/json
+      # El workflow espera el formato Meta WhatsApp Cloud API (entry[].changes[].value.messages[]).
+      # Enviar {chatInput} hacía que "Normalizar Mensaje" devolviera {skip:true} y el webhook
+      # respondiera 200 con cuerpo vacío -> los tests salían en ERROR.
+      body:
+        object: "whatsapp_business_account"
+        entry:
+          - changes:
+              - value:
+                  messages:
+                    - from: "{{telefonoPrueba}}"
+                      id: "{{sessionId}}"
+                      timestamp: "1234567890"
+                      text:
+                        body: "{{pregunta}}"
+                      type: "text"
+                  contacts:
+                    - profile:
+                        name: "Usuario Test"
+                      wa_id: "{{telefonoPrueba}}"
+                  # Debe ser un phone_number_id de una clínica REAL en Django,
+                  # si no, "Cargar Config Clínica" devuelve 404 y el workflow aborta sin responder.
+                  metadata:
+                    phone_number_id: "123456789"
+      # El nodo "Responder a Webhook Postman" devuelve { to, type, message }.
+      transformResponse: "json?.message ?? `__SIN_RESPUESTA__ status=${context.response.status} body=${JSON.stringify(json)}`"
+
+# ─────────────────────────────────────────────────────────────
+# DEFAULTTEST: se aplica a TODOS los casos
+# ─────────────────────────────────────────────────────────────
+defaultTest:
+  options:
+    provider: anthropic:messages:claude-sonnet-4-6
+    transformVars: "{ ...vars, sessionId: `pf-${Date.now()}-${Math.floor(Math.random()*1e6)}`, telefonoPrueba: '34644520621' }"
+  assert:
+    - type: llm-rubric
+      value: "La respuesta está en español y mantiene un tono profesional y cordial propio de una clínica dental. No se refiere a sí mismo como IA de forma que rompa la inmersión salvo que sea natural."
+    - type: llm-rubric
+      value: "La respuesta NO inventa datos concretos no verificables: precios cerrados, horarios, direcciones, números de teléfono o disponibilidad específica que no se le hayan dado. Si no tiene el dato, lo indica o dice que lo confirmará."
+    - type: latency
+      threshold: 15000   # ms; ajusta según lo que tarde tu workflow de n8n
+
+# ─────────────────────────────────────────────────────────────
+# TESTS: se cargan del CSV (cada fila = un caso; __expected = rúbrica específica)
+# ─────────────────────────────────────────────────────────────
+tests: file://casos_dental.csv
+
+# ─────────────────────────────────────────────────────────────
+# OUTPUT
+# ─────────────────────────────────────────────────────────────
+outputPath: resultados.html

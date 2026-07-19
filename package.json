@@ -1,0 +1,26 @@
+{
+  "name": "n8n-clinic-agent-alt4ir",
+  "version": "1.0.0",
+  "description": "> Agente de automatización para clínicas privadas construido sobre n8n. Convierte descripciones en lenguaje natural en workflows de producción listos para desplegar.",
+  "homepage": "https://github.com/budece13/n8n-clinic-agent-alt4ir#readme",
+  "bugs": {
+    "url": "https://github.com/budece13/n8n-clinic-agent-alt4ir/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/budece13/n8n-clinic-agent-alt4ir.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "promptfoo": "^0.121.17"
+  }
+}

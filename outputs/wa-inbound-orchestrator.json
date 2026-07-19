@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-16T03:09:32.519Z",
+  "updatedAt": "2026-07-02T02:51:27.694Z",
   "createdAt": "2026-04-09T19:03:15.824Z",
   "id": "zG25BeZcZydZwM9f",
   "name": "WA-Inbound-Orchestrator",
@@ -22,11 +22,12 @@
         208,
         400
       ],
-      "webhookId": "wa-inbound"
+      "webhookId": "wa-inbound",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "const body = $json.body || $json;\n\n// ── Formato WaAPI (web.whatsapp-api.com) ──────────────────────────\nif (body.event === 'message' && body.data && body.data.message) {\n  const msg = body.data.message;\n  \n  // WaAPI usa @lid para cuentas linked-device; extraemos solo el número\n  const rawFrom = msg.from || '';\n  const phone = rawFrom.replace(/@lid$|@c\\.us$/, '');\n  \n  return [{ json: {\n    phone: phone,\n    message: msg.body || '',\n    message_id: msg.id ? msg.id.id : '',\n    timestamp: String(msg.t || msg.timestamp || ''),\n    message_type: msg.type === 'chat' ? 'text' : msg.type,\n    is_text: msg.type === 'chat',\n    contact_name: msg._data ? msg._data.notifyName : '',\n    phone_number_id: body.instanceId || '',\n    clinic_id: 'clinic-test'\n  }}];\n}\n\n// ── Formato Meta WhatsApp Cloud API ──────────────────────────────\nconst entry = body.entry;\nif (!entry || !entry[0] || !entry[0].changes || !entry[0].changes[0] || !entry[0].changes[0].value.messages) {\n  return [{ json: { skip: true } }];\n}\n\nconst value = entry[0].changes[0].value;\nconst msg = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : {};\nconst phoneNumberId = value.metadata ? value.metadata.phone_number_id : '';\n\nreturn [{ json: {\n  phone: msg.from,\n  message: msg.text ? msg.text.body : '',\n  message_id: msg.id,\n  timestamp: msg.timestamp,\n  message_type: msg.type,\n  is_text: msg.type === 'text',\n  contact_name: contact.profile ? contact.profile.name : '',\n  phone_number_id: phoneNumberId,\n  clinic_id: 'clinic-test'\n}}];"
+        "jsCode": "const body = $json.body || $json;\n\n// ── Formato WaAPI (web.whatsapp-api.com) ──────────────────────────\nif (body.event === 'message' && body.data && body.data.message) {\n  const msg = body.data.message;\n  \n  // WaAPI usa @lid para cuentas linked-device; extraemos solo el número\n  const rawFrom = msg.from || '';\n  const phone = rawFrom.replace(/@lid$|@c\\.us$/, '');\n  \n  return [{ json: {\n    phone: phone,\n    message: msg.body || '',\n    message_id: msg.id ? msg.id.id : '',\n    timestamp: String(msg.t || msg.timestamp || ''),\n    message_type: msg.type === 'chat' ? 'text' : msg.type,\n    is_text: msg.type === 'chat',\n    is_test: false,\n    contact_name: msg._data ? msg._data.notifyName : '',\n    phone_number_id: body.instanceId || '',\n    clinic_id: 'clinic-test'\n  }}];\n}\n\n// ── Formato Meta WhatsApp Cloud API ──────────────────────────────\nconst entry = body.entry;\nif (!entry || !entry[0] || !entry[0].changes || !entry[0].changes[0] || !entry[0].changes[0].value.messages) {\n  return [{ json: { skip: true } }];\n}\n\nconst value = entry[0].changes[0].value;\nconst msg = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : {};\nconst phoneNumberId = value.metadata ? value.metadata.phone_number_id : '';\n\nreturn [{ json: {\n  phone: msg.from,\n  message: msg.text ? msg.text.body : '',\n  message_id: msg.id,\n  timestamp: msg.timestamp,\n  message_type: msg.type,\n  is_text: msg.type === 'text',\n  is_test: false,\n  contact_name: contact.profile ? contact.profile.name : '',\n  phone_number_id: phoneNumberId,\n  clinic_id: 'clinic-test'\n}}];"
       },
       "id": "53967e2a-5633-4bea-ba6f-687ad20ac9bf",
       "name": "Normalizar Mensaje",
@@ -106,7 +107,7 @@
           "parameters": [
             {
               "name": "phone",
-              "value": "={{ $('Normalizar Mensaje').item.json.phone }}"
+              "value": "={{ $('Preparar Contexto').first().json.phone }}"
             }
           ]
         },
@@ -138,7 +139,7 @@
           "parameters": [
             {
               "name": "patient_phone",
-              "value": "={{ $('Normalizar Mensaje').item.json.phone }}"
+              "value": "={{ $('Preparar Contexto').first().json.phone }}"
             },
             {
               "name": "reminder_24h_sent",
@@ -681,7 +682,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"clinic\": \"{{ $('Preparar Contexto').first().json.clinic_id }}\",\n  \"phone\": \"{{ $('Normalizar Mensaje').first().json.phone }}\",\n  \"session_data\": {}\n}",
+        "jsonBody": "={\n  \"clinic\": \"{{ $('Preparar Contexto').first().json.clinic_id }}\",\n  \"phone\": \"{{ $('Preparar Contexto').first().json.phone }}\",\n  \"session_data\": {}\n}",
         "options": {}
       },
       "id": "11223344-5566-7788-99aa-bbccddeeff00",
@@ -826,7 +827,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const msg = $('Normalizar Mensaje').first().json;\nconst config = $input.first().json;\n\nif (!config.django_auth_header) {\n  throw new Error('Config inválida: django_auth_header ausente para phone_number_id: ' + msg.phone_number_id);\n}\n\nconst result = Object.assign({}, msg, {\n  clinic_id: config.clinic_id,\n  clinic_name: config.name,\n  clinic_timezone: config.timezone,\n  django_auth_header: config.django_auth_header,\n  whatsapp_phone_number_id: config.whatsapp_phone_number_id,\n  whatsapp_token: config.whatsapp_token,\n  whatsapp_api_url: config.whatsapp_api_url\n});\n\n$execution.customData.set(\n  'django_auth_header', config.django_auth_header\n);\n\nreturn [{ json: result }];"
+        "jsCode": "let msg;\ntry { msg = $('Normalizar Mensaje').first().json; } catch (e) { msg = $('Normalizar Mensaje Chat').first().json; }\nconst config = $input.first().json;\n\nif (!config.django_auth_header) {\n  throw new Error('Config inválida: django_auth_header ausente para phone_number_id: ' + msg.phone_number_id);\n}\n\nconst result = Object.assign({}, msg, {\n  clinic_id: config.clinic_id,\n  clinic_name: config.name,\n  clinic_timezone: config.timezone,\n  django_auth_header: config.django_auth_header,\n  whatsapp_phone_number_id: config.whatsapp_phone_number_id,\n  whatsapp_token: config.whatsapp_token,\n  whatsapp_api_url: config.whatsapp_api_url\n});\n\n$execution.customData.set(\n  'django_auth_header', config.django_auth_header\n);\n\nreturn [{ json: result }];"
       },
       "id": "preparar-contexto",
       "name": "Preparar Contexto",
@@ -836,6 +837,196 @@
         960,
         192
       ]
+    },
+    {
+      "id": "082e8b06-dff0-4905-a530-5bef8545a8f4",
+      "name": "Webhook Test",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        760
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-test",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "bb517822-23f4-4d06-930f-d6d94e3555ab",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "1345fd7a-0ce3-44de-bfd5-b7bbbd25a2b1",
+      "name": "Validar Api-Key",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        224,
+        760
+      ],
+      "parameters": {
+        "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $('Webhook Test').first().json.body.phone }}"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $('Webhook Test').first().json.headers.authorization }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "5b8f4402-bdf1-4ccb-83bc-cda5b2d7a19c",
+      "name": "¿Api-Key Válida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        496,
+        760
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "apikey-valid-check",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c62baaea-843f-45da-a7dc-77b513c46709",
+      "name": "Responder 401 Test",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        768,
+        912
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"API key inválida o no autorizada\" } }}",
+        "options": {
+          "responseCode": 401,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "ca0a61e0-726c-4789-93ea-7731ef7557ff",
+      "name": "Normalizar Mensaje Chat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        640
+      ],
+      "parameters": {
+        "jsCode": "const body = $('Webhook Test').first().json.body || {};\nconst auth = $('Webhook Test').first().json.headers.authorization || '';\n\nconst phone = body.phone || 'panel-test';\n\nreturn [{ json: {\n  phone: phone,\n  message: body.message || '',\n  message_id: phone + '-' + Date.now(),\n  timestamp: String(Math.floor(Date.now() / 1000)),\n  message_type: 'text',\n  is_text: true,\n  is_test: true,\n  contact_name: 'Panel Test',\n  phone_number_id: body.phone_number_id || 'panel-test',\n  clinic_id: body.clinic_id || 'default',\n  django_auth_header: auth,\n  name: 'Panel Test',\n  timezone: 'Europe/Madrid'\n} }];"
+      }
+    },
+    {
+      "id": "0bc82f2c-fe51-4ec9-83ab-69218b00cd1a",
+      "name": "¿Es Test?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3120,
+        208
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-test-check",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $('Preparar Contexto').first().json.is_test }}"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c2bf284b-c8af-4bfe-ba7f-b45d9b15c504",
+      "name": "Responder Webhook Test",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3360,
+        96
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"reply\": $('Formatear respuesta').first().json.message } }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "connections": {
@@ -1005,7 +1196,7 @@
             "index": 0
           },
           {
-            "node": "Responder a Webhook Postman",
+            "node": "¿Es Test?",
             "type": "main",
             "index": 0
           }
@@ -1109,6 +1300,75 @@
           }
         ]
       ]
+    },
+    "Webhook Test": {
+      "main": [
+        [
+          {
+            "node": "Validar Api-Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Api-Key": {
+      "main": [
+        [
+          {
+            "node": "¿Api-Key Válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Api-Key Válida?": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Mensaje Chat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 401 Test",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Mensaje Chat": {
+      "main": [
+        [
+          {
+            "node": "Preparar Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es Test?": {
+      "main": [
+        [
+          {
+            "node": "Responder Webhook Test",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder a Webhook Postman",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -1123,10 +1383,10 @@
     "templateCredsSetupCompleted": true
   },
   "pinData": {},
-  "versionId": "937ab099-7175-441a-b06b-950523dbace4",
-  "activeVersionId": "937ab099-7175-441a-b06b-950523dbace4",
-  "versionCounter": 313,
-  "triggerCount": 1,
+  "versionId": "da67bb1c-fba6-4eaa-b5fc-b3770d6fe712",
+  "activeVersionId": "da67bb1c-fba6-4eaa-b5fc-b3770d6fe712",
+  "versionCounter": 322,
+  "triggerCount": 2,
   "shared": [
     {
       "updatedAt": "2026-04-09T19:03:15.824Z",
@@ -1148,9 +1408,9 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-06-16T03:09:32.522Z",
-    "createdAt": "2026-06-16T03:09:32.522Z",
-    "versionId": "937ab099-7175-441a-b06b-950523dbace4",
+    "updatedAt": "2026-07-02T02:51:27.700Z",
+    "createdAt": "2026-07-02T02:51:27.700Z",
+    "versionId": "da67bb1c-fba6-4eaa-b5fc-b3770d6fe712",
     "workflowId": "zG25BeZcZydZwM9f",
     "nodes": [
       {
@@ -1168,11 +1428,12 @@
           208,
           400
         ],
-        "webhookId": "wa-inbound"
+        "webhookId": "wa-inbound",
+        "onError": "continueRegularOutput"
       },
       {
         "parameters": {
-          "jsCode": "const body = $json.body || $json;\n\n// ── Formato WaAPI (web.whatsapp-api.com) ──────────────────────────\nif (body.event === 'message' && body.data && body.data.message) {\n  const msg = body.data.message;\n  \n  // WaAPI usa @lid para cuentas linked-device; extraemos solo el número\n  const rawFrom = msg.from || '';\n  const phone = rawFrom.replace(/@lid$|@c\\.us$/, '');\n  \n  return [{ json: {\n    phone: phone,\n    message: msg.body || '',\n    message_id: msg.id ? msg.id.id : '',\n    timestamp: String(msg.t || msg.timestamp || ''),\n    message_type: msg.type === 'chat' ? 'text' : msg.type,\n    is_text: msg.type === 'chat',\n    contact_name: msg._data ? msg._data.notifyName : '',\n    phone_number_id: body.instanceId || '',\n    clinic_id: 'clinic-test'\n  }}];\n}\n\n// ── Formato Meta WhatsApp Cloud API ──────────────────────────────\nconst entry = body.entry;\nif (!entry || !entry[0] || !entry[0].changes || !entry[0].changes[0] || !entry[0].changes[0].value.messages) {\n  return [{ json: { skip: true } }];\n}\n\nconst value = entry[0].changes[0].value;\nconst msg = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : {};\nconst phoneNumberId = value.metadata ? value.metadata.phone_number_id : '';\n\nreturn [{ json: {\n  phone: msg.from,\n  message: msg.text ? msg.text.body : '',\n  message_id: msg.id,\n  timestamp: msg.timestamp,\n  message_type: msg.type,\n  is_text: msg.type === 'text',\n  contact_name: contact.profile ? contact.profile.name : '',\n  phone_number_id: phoneNumberId,\n  clinic_id: 'clinic-test'\n}}];"
+          "jsCode": "const body = $json.body || $json;\n\n// ── Formato WaAPI (web.whatsapp-api.com) ──────────────────────────\nif (body.event === 'message' && body.data && body.data.message) {\n  const msg = body.data.message;\n  \n  // WaAPI usa @lid para cuentas linked-device; extraemos solo el número\n  const rawFrom = msg.from || '';\n  const phone = rawFrom.replace(/@lid$|@c\\.us$/, '');\n  \n  return [{ json: {\n    phone: phone,\n    message: msg.body || '',\n    message_id: msg.id ? msg.id.id : '',\n    timestamp: String(msg.t || msg.timestamp || ''),\n    message_type: msg.type === 'chat' ? 'text' : msg.type,\n    is_text: msg.type === 'chat',\n    is_test: false,\n    contact_name: msg._data ? msg._data.notifyName : '',\n    phone_number_id: body.instanceId || '',\n    clinic_id: 'clinic-test'\n  }}];\n}\n\n// ── Formato Meta WhatsApp Cloud API ──────────────────────────────\nconst entry = body.entry;\nif (!entry || !entry[0] || !entry[0].changes || !entry[0].changes[0] || !entry[0].changes[0].value.messages) {\n  return [{ json: { skip: true } }];\n}\n\nconst value = entry[0].changes[0].value;\nconst msg = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : {};\nconst phoneNumberId = value.metadata ? value.metadata.phone_number_id : '';\n\nreturn [{ json: {\n  phone: msg.from,\n  message: msg.text ? msg.text.body : '',\n  message_id: msg.id,\n  timestamp: msg.timestamp,\n  message_type: msg.type,\n  is_text: msg.type === 'text',\n  is_test: false,\n  contact_name: contact.profile ? contact.profile.name : '',\n  phone_number_id: phoneNumberId,\n  clinic_id: 'clinic-test'\n}}];"
         },
         "id": "53967e2a-5633-4bea-ba6f-687ad20ac9bf",
         "name": "Normalizar Mensaje",
@@ -1252,7 +1513,7 @@
             "parameters": [
               {
                 "name": "phone",
-                "value": "={{ $('Normalizar Mensaje').item.json.phone }}"
+                "value": "={{ $('Preparar Contexto').first().json.phone }}"
               }
             ]
           },
@@ -1284,7 +1545,7 @@
             "parameters": [
               {
                 "name": "patient_phone",
-                "value": "={{ $('Normalizar Mensaje').item.json.phone }}"
+                "value": "={{ $('Preparar Contexto').first().json.phone }}"
               },
               {
                 "name": "reminder_24h_sent",
@@ -1827,7 +2088,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={\n  \"clinic\": \"{{ $('Preparar Contexto').first().json.clinic_id }}\",\n  \"phone\": \"{{ $('Normalizar Mensaje').first().json.phone }}\",\n  \"session_data\": {}\n}",
+          "jsonBody": "={\n  \"clinic\": \"{{ $('Preparar Contexto').first().json.clinic_id }}\",\n  \"phone\": \"{{ $('Preparar Contexto').first().json.phone }}\",\n  \"session_data\": {}\n}",
           "options": {}
         },
         "id": "11223344-5566-7788-99aa-bbccddeeff00",
@@ -1972,7 +2233,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const msg = $('Normalizar Mensaje').first().json;\nconst config = $input.first().json;\n\nif (!config.django_auth_header) {\n  throw new Error('Config inválida: django_auth_header ausente para phone_number_id: ' + msg.phone_number_id);\n}\n\nconst result = Object.assign({}, msg, {\n  clinic_id: config.clinic_id,\n  clinic_name: config.name,\n  clinic_timezone: config.timezone,\n  django_auth_header: config.django_auth_header,\n  whatsapp_phone_number_id: config.whatsapp_phone_number_id,\n  whatsapp_token: config.whatsapp_token,\n  whatsapp_api_url: config.whatsapp_api_url\n});\n\n$execution.customData.set(\n  'django_auth_header', config.django_auth_header\n);\n\nreturn [{ json: result }];"
+          "jsCode": "let msg;\ntry { msg = $('Normalizar Mensaje').first().json; } catch (e) { msg = $('Normalizar Mensaje Chat').first().json; }\nconst config = $input.first().json;\n\nif (!config.django_auth_header) {\n  throw new Error('Config inválida: django_auth_header ausente para phone_number_id: ' + msg.phone_number_id);\n}\n\nconst result = Object.assign({}, msg, {\n  clinic_id: config.clinic_id,\n  clinic_name: config.name,\n  clinic_timezone: config.timezone,\n  django_auth_header: config.django_auth_header,\n  whatsapp_phone_number_id: config.whatsapp_phone_number_id,\n  whatsapp_token: config.whatsapp_token,\n  whatsapp_api_url: config.whatsapp_api_url\n});\n\n$execution.customData.set(\n  'django_auth_header', config.django_auth_header\n);\n\nreturn [{ json: result }];"
         },
         "id": "preparar-contexto",
         "name": "Preparar Contexto",
@@ -1982,6 +2243,196 @@
           960,
           192
         ]
+      },
+      {
+        "id": "082e8b06-dff0-4905-a530-5bef8545a8f4",
+        "name": "Webhook Test",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -48,
+          760
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "whatsapp-test",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "webhookId": "bb517822-23f4-4d06-930f-d6d94e3555ab",
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "1345fd7a-0ce3-44de-bfd5-b7bbbd25a2b1",
+        "name": "Validar Api-Key",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          224,
+          760
+        ],
+        "parameters": {
+          "url": "={{ $env.DJANGO_API_URL }}/api/agent/sessions/",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "phone",
+                "value": "={{ $('Webhook Test').first().json.body.phone }}"
+              },
+              {
+                "name": "limit",
+                "value": "1"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "={{ $('Webhook Test').first().json.headers.authorization }}"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "5b8f4402-bdf1-4ccb-83bc-cda5b2d7a19c",
+        "name": "¿Api-Key Válida?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          496,
+          760
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 3,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "loose"
+            },
+            "conditions": [
+              {
+                "id": "apikey-valid-check",
+                "operator": {
+                  "type": "number",
+                  "operation": "equals"
+                },
+                "leftValue": "={{ $json.statusCode }}",
+                "rightValue": 200
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "c62baaea-843f-45da-a7dc-77b513c46709",
+        "name": "Responder 401 Test",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          768,
+          912
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { \"error\": \"API key inválida o no autorizada\" } }}",
+          "options": {
+            "responseCode": 401,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "ca0a61e0-726c-4789-93ea-7731ef7557ff",
+        "name": "Normalizar Mensaje Chat",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          768,
+          640
+        ],
+        "parameters": {
+          "jsCode": "const body = $('Webhook Test').first().json.body || {};\nconst auth = $('Webhook Test').first().json.headers.authorization || '';\n\nconst phone = body.phone || 'panel-test';\n\nreturn [{ json: {\n  phone: phone,\n  message: body.message || '',\n  message_id: phone + '-' + Date.now(),\n  timestamp: String(Math.floor(Date.now() / 1000)),\n  message_type: 'text',\n  is_text: true,\n  is_test: true,\n  contact_name: 'Panel Test',\n  phone_number_id: body.phone_number_id || 'panel-test',\n  clinic_id: body.clinic_id || 'default',\n  django_auth_header: auth,\n  name: 'Panel Test',\n  timezone: 'Europe/Madrid'\n} }];"
+        }
+      },
+      {
+        "id": "0bc82f2c-fe51-4ec9-83ab-69218b00cd1a",
+        "name": "¿Es Test?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          3120,
+          208
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 3,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "is-test-check",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ $('Preparar Contexto').first().json.is_test }}"
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "c2bf284b-c8af-4bfe-ba7f-b45d9b15c504",
+        "name": "Responder Webhook Test",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          3360,
+          96
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { \"reply\": $('Formatear respuesta').first().json.message } }}",
+          "options": {
+            "responseCode": 200,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "application/json"
+                }
+              ]
+            }
+          }
+        }
       }
     ],
     "connections": {
@@ -2151,7 +2602,7 @@
               "index": 0
             },
             {
-              "node": "Responder a Webhook Postman",
+              "node": "¿Es Test?",
               "type": "main",
               "index": 0
             }
@@ -2255,6 +2706,75 @@
             }
           ]
         ]
+      },
+      "Webhook Test": {
+        "main": [
+          [
+            {
+              "node": "Validar Api-Key",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validar Api-Key": {
+        "main": [
+          [
+            {
+              "node": "¿Api-Key Válida?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "¿Api-Key Válida?": {
+        "main": [
+          [
+            {
+              "node": "Normalizar Mensaje Chat",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Responder 401 Test",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalizar Mensaje Chat": {
+        "main": [
+          [
+            {
+              "node": "Preparar Contexto",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "¿Es Test?": {
+        "main": [
+          [
+            {
+              "node": "Responder Webhook Test",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Responder a Webhook Postman",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "authors": "devs cool",
@@ -2263,18 +2783,18 @@
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-06-16T03:09:32.617Z",
-        "id": 291,
+        "createdAt": "2026-07-02T02:51:27.950Z",
+        "id": 297,
         "workflowId": "zG25BeZcZydZwM9f",
-        "versionId": "937ab099-7175-441a-b06b-950523dbace4",
+        "versionId": "da67bb1c-fba6-4eaa-b5fc-b3770d6fe712",
         "event": "deactivated",
         "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       },
       {
-        "createdAt": "2026-06-16T03:09:32.660Z",
-        "id": 292,
+        "createdAt": "2026-07-02T02:51:28.031Z",
+        "id": 298,
         "workflowId": "zG25BeZcZydZwM9f",
-        "versionId": "937ab099-7175-441a-b06b-950523dbace4",
+        "versionId": "da67bb1c-fba6-4eaa-b5fc-b3770d6fe712",
         "event": "activated",
         "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       }

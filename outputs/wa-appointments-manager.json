@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-16T03:09:05.362Z",
+  "updatedAt": "2026-07-18T23:06:29.660Z",
   "createdAt": "2026-04-09T19:03:17.341Z",
   "id": "9uusM4595mjJOMCc",
   "name": "WA-Appointments-Manager",
@@ -398,7 +398,13 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({\n  clinic: $json.clinic_id,\n  patient: $json.patient_id,\n  service: $json.service_id,\n  professional: $json.professional_id || null,\n  scheduled_at: $json.scheduled_at,\n  end_at: $json.end_at,\n  status: 'pending'\n}) }}",
-        "options": {}
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
       },
       "id": "b-crear-cita",
       "name": "B - Crear Cita Django",
@@ -413,7 +419,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const cita = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nif (cita.id) {\n  const fecha = cita.scheduled_at\n    ? new Date(cita.scheduled_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })\n    : 'por confirmar';\n  return [{ json: {\n    success: true,\n    response: `Tu cita ha sido registrada para el ${fecha}. Estado: pendiente de confirmación. Te avisaremos cuando sea confirmada.`\n  }}];\n} else {\n  let errorMsg = '';\n\n  if (cita.detail) {\n    errorMsg = cita.detail;\n  } else if (cita.non_field_errors) {\n    errorMsg = [].concat(cita.non_field_errors).join(' ');\n  } else if (typeof cita === 'object' && cita !== null) {\n    const parts = Object.entries(cita).map(([field, msg]) => {\n      const text = [].concat(msg).join(', ');\n      return text;\n    });\n    errorMsg = parts.join(' ');\n  }\n\n  const fallback = 'No hemos podido crear tu cita en este momento. Por favor, llámanos para agendar tu visita.';\n\n  return [{ json: {\n    success: false,\n    response: errorMsg || fallback\n  }}];\n}"
+        "jsCode": "const cita = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nif (cita.id) {\n  const fecha = cita.scheduled_at\n    ? new Date(cita.scheduled_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })\n    : 'por confirmar';\n  return [{ json: {\n    success: true,\n    response: `Tu cita ha sido registrada para el ${fecha}. Estado: pendiente de confirmación. Te avisaremos cuando sea confirmada.`\n  }}];\n}\n\n// Errores de dominio: { code, message, details } con HTTP 400\n// (slot_unavailable, no_professional_available, professional_unavailable).\n// El message ya viene redactado para el paciente -> mostrarlo tal cual.\nif (cita.code && cita.message) {\n  return [{ json: { success: false, response: cita.message } }];\n}\n\nlet errorMsg = '';\n\nif (cita.detail) {\n  errorMsg = cita.detail;\n} else if (cita.non_field_errors) {\n  errorMsg = [].concat(cita.non_field_errors).join(' ');\n} else if (typeof cita === 'object' && cita !== null) {\n  const parts = Object.entries(cita).map(([field, msg]) => {\n    const text = [].concat(msg).join(', ');\n    return text;\n  });\n  errorMsg = parts.join(' ');\n}\n\nconst fallback = 'No hemos podido crear tu cita en este momento. Por favor, llámanos para agendar tu visita.';\n\nreturn [{ json: {\n  success: false,\n  response: errorMsg || fallback\n}}];"
       },
       "id": "b-respuesta-crear",
       "name": "B - Respuesta Crear Cita",
@@ -754,35 +760,6 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $env.DJANGO_API_URL }}/api/public/appointments/{{ $('E - Obtener Estado Cita').first().json.confirmation_token }}/cancel/",
-        "options": {}
-      },
-      "id": "e-cancelar-reminder-token",
-      "name": "E - Cancelar Reminder Token",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1200,
-        1056
-      ],
-      "continueOnFail": true
-    },
-    {
-      "parameters": {
-        "jsCode": "return [{ json: { success: true, response: 'Tu cita ha sido cancelada. Si deseas reprogramar, dime cuándo te viene bien.' }}];"
-      },
-      "id": "e-respuesta-cancelacion-reminder",
-      "name": "E - Respuesta Cancelacion Reminder",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1504,
-        1056
-      ]
-    },
-    {
-      "parameters": {
         "jsCode": "const action = $('Trigger - Execute Workflow').first().json.action || 'desconocida';\nreturn [{ json: {\n  success: false,\n  response: 'No he entendido tu solicitud. Puedo ayudarte a agendar, consultar o cancelar citas.'\n}}];"
       },
       "id": "error-accion-no-reconocida",
@@ -902,6 +879,8 @@
     {
       "parameters": {
         "url": "={{ $env.DJANGO_API_URL }}/api/agent/errors/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": []
@@ -909,9 +888,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ { \"workflow\": $json.workflow?.id || 'unknown', \"workflow_name\": $json.workflow?.name || 'unknown', \"node_name\": $json.execution?.lastNodeExecuted || 'unknown', \"error_message\": $json.execution?.error?.message || 'Error desconocido', \"phone\": $json.execution?.customData?.phone || '', \"payload\": JSON.stringify($json.execution?.error || {}), \"input_data\": JSON.stringify($json) } }}",
-        "options": {},
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth"
+        "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -1184,7 +1161,7 @@
       "typeVersion": 4.4,
       "position": [
         1120,
-        1860
+        1872
       ]
     },
     {
@@ -1196,8 +1173,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1380,
-        1860
+        1392,
+        1872
       ]
     },
     {
@@ -1236,7 +1213,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1640,
+        1648,
         1712
       ],
       "continueOnFail": true
@@ -1250,7 +1227,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1900,
+        1904,
         1712
       ]
     },
@@ -1430,14 +1407,6 @@
       "name": "Code in JavaScript"
     },
     {
-      "id": "43ed9896-7e43-4939-91c3-c6de4db9f0ee",
-      "name": "I - Validacion OK?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        740,
-        1712
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -1459,18 +1428,19 @@
             }
           ],
           "combinator": "and"
-        }
-      }
-    },
-    {
-      "id": "3b69b35f-baf8-494a-97bb-4bb004fdace5",
-      "name": "I - Servicio Encontrado?",
+        },
+        "options": {}
+      },
+      "id": "43ed9896-7e43-4939-91c3-c6de4db9f0ee",
+      "name": "I - Validacion OK?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1500,
-        1860
-      ],
+        752,
+        1712
+      ]
+    },
+    {
       "parameters": {
         "conditions": {
           "options": {
@@ -1492,8 +1462,46 @@
             }
           ],
           "combinator": "and"
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "3b69b35f-baf8-494a-97bb-4bb004fdace5",
+      "name": "I - Servicio Encontrado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1504,
+        1872
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DJANGO_API_URL }}/api/public/appointments/{{ $('E - Obtener Estado Cita').first().json.confirmation_token }}/cancel/",
+        "options": {}
+      },
+      "id": "e-cancelar-reminder-token",
+      "name": "E - Cancelar por Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        1056
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: true, response: 'Tu cita ha sido cancelada. Si deseas reprogramar, dime cuándo te viene bien.' }}];"
+      },
+      "id": "e-respuesta-cancelacion-reminder",
+      "name": "E - Respuesta Cancelacion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        1056
+      ]
     }
   ],
   "connections": {
@@ -1776,7 +1784,7 @@
         ],
         [
           {
-            "node": "E - Cancelar Reminder Token",
+            "node": "E - Cancelar por Token",
             "type": "main",
             "index": 0
           }
@@ -1795,17 +1803,6 @@
         [
           {
             "node": "E - Respuesta Confirmacion",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "E - Cancelar Reminder Token": {
-      "main": [
-        [
-          {
-            "node": "E - Respuesta Cancelacion Reminder",
             "type": "main",
             "index": 0
           }
@@ -2005,6 +2002,17 @@
           }
         ]
       ]
+    },
+    "E - Cancelar por Token": {
+      "main": [
+        [
+          {
+            "node": "E - Respuesta Cancelacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -2032,9 +2040,9 @@
       }
     ]
   },
-  "versionId": "23907796-7cbb-4011-82fa-89efd6314af5",
-  "activeVersionId": "23907796-7cbb-4011-82fa-89efd6314af5",
-  "versionCounter": 365,
+  "versionId": "29d843c1-b5f2-45e0-a03e-dcb6b742eb27",
+  "activeVersionId": "29d843c1-b5f2-45e0-a03e-dcb6b742eb27",
+  "versionCounter": 373,
   "triggerCount": 0,
   "shared": [
     {
@@ -2057,9 +2065,9 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-06-16T03:09:05.364Z",
-    "createdAt": "2026-06-16T03:09:05.364Z",
-    "versionId": "23907796-7cbb-4011-82fa-89efd6314af5",
+    "updatedAt": "2026-07-18T23:06:29.668Z",
+    "createdAt": "2026-07-18T23:06:29.668Z",
+    "versionId": "29d843c1-b5f2-45e0-a03e-dcb6b742eb27",
     "workflowId": "9uusM4595mjJOMCc",
     "nodes": [
       {
@@ -2453,7 +2461,13 @@
           "sendBody": true,
           "specifyBody": "json",
           "jsonBody": "={{ JSON.stringify({\n  clinic: $json.clinic_id,\n  patient: $json.patient_id,\n  service: $json.service_id,\n  professional: $json.professional_id || null,\n  scheduled_at: $json.scheduled_at,\n  end_at: $json.end_at,\n  status: 'pending'\n}) }}",
-          "options": {}
+          "options": {
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            }
+          }
         },
         "id": "b-crear-cita",
         "name": "B - Crear Cita Django",
@@ -2468,7 +2482,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const cita = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nif (cita.id) {\n  const fecha = cita.scheduled_at\n    ? new Date(cita.scheduled_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })\n    : 'por confirmar';\n  return [{ json: {\n    success: true,\n    response: `Tu cita ha sido registrada para el ${fecha}. Estado: pendiente de confirmación. Te avisaremos cuando sea confirmada.`\n  }}];\n} else {\n  let errorMsg = '';\n\n  if (cita.detail) {\n    errorMsg = cita.detail;\n  } else if (cita.non_field_errors) {\n    errorMsg = [].concat(cita.non_field_errors).join(' ');\n  } else if (typeof cita === 'object' && cita !== null) {\n    const parts = Object.entries(cita).map(([field, msg]) => {\n      const text = [].concat(msg).join(', ');\n      return text;\n    });\n    errorMsg = parts.join(' ');\n  }\n\n  const fallback = 'No hemos podido crear tu cita en este momento. Por favor, llámanos para agendar tu visita.';\n\n  return [{ json: {\n    success: false,\n    response: errorMsg || fallback\n  }}];\n}"
+          "jsCode": "const cita = $input.first().json;\nconst trigger = $('Trigger - Execute Workflow').first().json;\n\nif (cita.id) {\n  const fecha = cita.scheduled_at\n    ? new Date(cita.scheduled_at).toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })\n    : 'por confirmar';\n  return [{ json: {\n    success: true,\n    response: `Tu cita ha sido registrada para el ${fecha}. Estado: pendiente de confirmación. Te avisaremos cuando sea confirmada.`\n  }}];\n}\n\n// Errores de dominio: { code, message, details } con HTTP 400\n// (slot_unavailable, no_professional_available, professional_unavailable).\n// El message ya viene redactado para el paciente -> mostrarlo tal cual.\nif (cita.code && cita.message) {\n  return [{ json: { success: false, response: cita.message } }];\n}\n\nlet errorMsg = '';\n\nif (cita.detail) {\n  errorMsg = cita.detail;\n} else if (cita.non_field_errors) {\n  errorMsg = [].concat(cita.non_field_errors).join(' ');\n} else if (typeof cita === 'object' && cita !== null) {\n  const parts = Object.entries(cita).map(([field, msg]) => {\n    const text = [].concat(msg).join(', ');\n    return text;\n  });\n  errorMsg = parts.join(' ');\n}\n\nconst fallback = 'No hemos podido crear tu cita en este momento. Por favor, llámanos para agendar tu visita.';\n\nreturn [{ json: {\n  success: false,\n  response: errorMsg || fallback\n}}];"
         },
         "id": "b-respuesta-crear",
         "name": "B - Respuesta Crear Cita",
@@ -2809,35 +2823,6 @@
       },
       {
         "parameters": {
-          "method": "POST",
-          "url": "={{ $env.DJANGO_API_URL }}/api/public/appointments/{{ $('E - Obtener Estado Cita').first().json.confirmation_token }}/cancel/",
-          "options": {}
-        },
-        "id": "e-cancelar-reminder-token",
-        "name": "E - Cancelar Reminder Token",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          1200,
-          1056
-        ],
-        "continueOnFail": true
-      },
-      {
-        "parameters": {
-          "jsCode": "return [{ json: { success: true, response: 'Tu cita ha sido cancelada. Si deseas reprogramar, dime cuándo te viene bien.' }}];"
-        },
-        "id": "e-respuesta-cancelacion-reminder",
-        "name": "E - Respuesta Cancelacion Reminder",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1504,
-          1056
-        ]
-      },
-      {
-        "parameters": {
           "jsCode": "const action = $('Trigger - Execute Workflow').first().json.action || 'desconocida';\nreturn [{ json: {\n  success: false,\n  response: 'No he entendido tu solicitud. Puedo ayudarte a agendar, consultar o cancelar citas.'\n}}];"
         },
         "id": "error-accion-no-reconocida",
@@ -2957,6 +2942,8 @@
       {
         "parameters": {
           "url": "={{ $env.DJANGO_API_URL }}/api/agent/errors/",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": []
@@ -2964,9 +2951,7 @@
           "sendBody": true,
           "specifyBody": "json",
           "jsonBody": "={{ { \"workflow\": $json.workflow?.id || 'unknown', \"workflow_name\": $json.workflow?.name || 'unknown', \"node_name\": $json.execution?.lastNodeExecuted || 'unknown', \"error_message\": $json.execution?.error?.message || 'Error desconocido', \"phone\": $json.execution?.customData?.phone || '', \"payload\": JSON.stringify($json.execution?.error || {}), \"input_data\": JSON.stringify($json) } }}",
-          "options": {},
-          "authentication": "genericCredentialType",
-          "genericAuthType": "httpHeaderAuth"
+          "options": {}
         },
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
@@ -3239,7 +3224,7 @@
         "typeVersion": 4.4,
         "position": [
           1120,
-          1860
+          1872
         ]
       },
       {
@@ -3251,8 +3236,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1380,
-          1860
+          1392,
+          1872
         ]
       },
       {
@@ -3291,7 +3276,7 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          1640,
+          1648,
           1712
         ],
         "continueOnFail": true
@@ -3305,7 +3290,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1900,
+          1904,
           1712
         ]
       },
@@ -3485,14 +3470,6 @@
         "name": "Code in JavaScript"
       },
       {
-        "id": "43ed9896-7e43-4939-91c3-c6de4db9f0ee",
-        "name": "I - Validacion OK?",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          740,
-          1712
-        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -3514,18 +3491,19 @@
               }
             ],
             "combinator": "and"
-          }
-        }
-      },
-      {
-        "id": "3b69b35f-baf8-494a-97bb-4bb004fdace5",
-        "name": "I - Servicio Encontrado?",
+          },
+          "options": {}
+        },
+        "id": "43ed9896-7e43-4939-91c3-c6de4db9f0ee",
+        "name": "I - Validacion OK?",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          1500,
-          1860
-        ],
+          752,
+          1712
+        ]
+      },
+      {
         "parameters": {
           "conditions": {
             "options": {
@@ -3547,8 +3525,46 @@
               }
             ],
             "combinator": "and"
-          }
-        }
+          },
+          "options": {}
+        },
+        "id": "3b69b35f-baf8-494a-97bb-4bb004fdace5",
+        "name": "I - Servicio Encontrado?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1504,
+          1872
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.DJANGO_API_URL }}/api/public/appointments/{{ $('E - Obtener Estado Cita').first().json.confirmation_token }}/cancel/",
+          "options": {}
+        },
+        "id": "e-cancelar-reminder-token",
+        "name": "E - Cancelar por Token",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          1200,
+          1056
+        ],
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "jsCode": "return [{ json: { success: true, response: 'Tu cita ha sido cancelada. Si deseas reprogramar, dime cuándo te viene bien.' }}];"
+        },
+        "id": "e-respuesta-cancelacion-reminder",
+        "name": "E - Respuesta Cancelacion",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1504,
+          1056
+        ]
       }
     ],
     "connections": {
@@ -3831,7 +3847,7 @@
           ],
           [
             {
-              "node": "E - Cancelar Reminder Token",
+              "node": "E - Cancelar por Token",
               "type": "main",
               "index": 0
             }
@@ -3850,17 +3866,6 @@
           [
             {
               "node": "E - Respuesta Confirmacion",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "E - Cancelar Reminder Token": {
-        "main": [
-          [
-            {
-              "node": "E - Respuesta Cancelacion Reminder",
               "type": "main",
               "index": 0
             }
@@ -4060,6 +4065,17 @@
             }
           ]
         ]
+      },
+      "E - Cancelar por Token": {
+        "main": [
+          [
+            {
+              "node": "E - Respuesta Cancelacion",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "authors": "devs cool",
@@ -4068,18 +4084,18 @@
     "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-06-16T03:09:05.461Z",
-        "id": 289,
+        "createdAt": "2026-07-18T23:06:29.895Z",
+        "id": 301,
         "workflowId": "9uusM4595mjJOMCc",
-        "versionId": "23907796-7cbb-4011-82fa-89efd6314af5",
+        "versionId": "29d843c1-b5f2-45e0-a03e-dcb6b742eb27",
         "event": "deactivated",
         "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       },
       {
-        "createdAt": "2026-06-16T03:09:05.506Z",
-        "id": 290,
+        "createdAt": "2026-07-18T23:06:29.968Z",
+        "id": 302,
         "workflowId": "9uusM4595mjJOMCc",
-        "versionId": "23907796-7cbb-4011-82fa-89efd6314af5",
+        "versionId": "29d843c1-b5f2-45e0-a03e-dcb6b742eb27",
         "event": "activated",
         "userId": "e622ad16-5554-4582-8aa5-6fd09c1be4d7"
       }

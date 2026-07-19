@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HTTP Webhook Tester</title>
+<title>AutoClinic Agent Tester - Webhook Whatsapp</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -460,7 +460,7 @@
       class="url-input"
       id="urlInput"
       type="text"
-      value="https://n8n.alt4ir.online/webhook/whatsapp-inbound/"
+      value="https://n8n.alt4ir.online/webhook/whatsapp-test"
       placeholder="https://tu-servidor.com/webhook/endpoint"
     />
   </div>
@@ -524,17 +524,25 @@
 
   <!-- Editable fields row -->
   <div style="display:flex; gap:8px; flex-wrap:wrap;">
-    <div style="flex:1;min-width:180px;">
-      <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px;">Nombre</label>
-      <input type="text" class="url-input" id="fieldName" value="Jesús" style="width:100%;font-size:11px;padding:7px 10px;" />
+    <div style="flex:1;min-width:150px;">
+      <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px;">Teléfono (phone)</label>
+      <input type="text" class="url-input" id="fieldPhone" value="+34600000001" style="width:100%;font-size:11px;padding:7px 10px;" />
     </div>
-    <div style="flex:1;min-width:160px;">
-      <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px;">Teléfono (from / wa_id)</label>
-      <input type="text" class="url-input" id="fieldPhone" value="+34677668866" style="width:100%;font-size:11px;padding:7px 10px;" />
+    <div style="flex:1;min-width:130px;">
+      <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px;">Clinic ID</label>
+      <input type="text" class="url-input" id="fieldClinicId" value="clinic-test" style="width:100%;font-size:11px;padding:7px 10px;" />
     </div>
-    <div style="flex:0.7;min-width:130px;">
-      <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px;">Message ID</label>
-      <input type="text" class="url-input" id="fieldMsgId" value="test-msg-001" style="width:100%;font-size:11px;padding:7px 10px;" />
+    <div style="flex:1;min-width:150px;">
+      <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px;">Phone Number ID</label>
+      <input type="text" class="url-input" id="fieldPhoneNumberId" value="panel-test" style="width:100%;font-size:11px;padding:7px 10px;" />
+    </div>
+  </div>
+
+  <!-- Api-Key (Authorization) row -->
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <div style="flex:1;min-width:260px;">
+      <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px;">Authorization — Api-Key del agente (webhook whatsapp-test)</label>
+      <input type="text" class="url-input" id="fieldApiKey" value="Api-Key a52ea3b9-53c9-441d-895d-f9e5cdca48e4" placeholder="Api-Key xxxxxxxx-xxxx-..." style="width:100%;font-size:11px;padding:7px 10px;" spellcheck="false" />
     </div>
   </div>
 
@@ -568,36 +576,20 @@
   let reqCount = 0;
   const messagesArea = document.getElementById('messagesArea');
 
-  // ── Build WhatsApp payload ──
+  // ── Build payload (webhook de test: body plano) ──
+  // El endpoint /webhook/whatsapp-test espera { phone, message, clinic_id, phone_number_id }
+  // y toma el django_auth_header del header Authorization (Api-Key).
   function buildPayload() {
     const msg = document.getElementById('quickMsg').value;
-    const name = document.getElementById('fieldName').value;
     const phone = document.getElementById('fieldPhone').value;
-    const msgId = document.getElementById('fieldMsgId').value;
-    const ts = Math.floor(Date.now() / 1000).toString();
+    const clinicId = document.getElementById('fieldClinicId').value;
+    const phoneNumberId = document.getElementById('fieldPhoneNumberId').value;
 
     return {
-      object: "whatsapp_business_account",
-      entry: [{
-        changes: [{
-          value: {
-            messages: [{
-              from: phone,
-              id: msgId,
-              timestamp: ts,
-              text: { body: msg },
-              type: "text"
-            }],
-            contacts: [{
-              profile: { name: name },
-              wa_id: phone
-            }],
-            metadata: {
-              phone_number_id: "123456789"
-            }
-          }
-        }]
-      }]
+      phone: phone,
+      message: msg,
+      clinic_id: clinicId,
+      phone_number_id: phoneNumberId
     };
   }
 
@@ -660,6 +652,9 @@
       const v = inputs[1].value.trim();
       if (k) headers[k] = v;
     });
+    // Authorization (Api-Key) para el webhook de test → se convierte en django_auth_header
+    const apiKey = document.getElementById('fieldApiKey').value.trim();
+    if (apiKey) headers['Authorization'] = apiKey;
     return headers;
   }
 
@@ -766,7 +761,9 @@
         contentType = response.headers.get('content-type') || '';
       } catch (directErr) {
         if (!useProxy) throw directErr;
-        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+        const proxyUrl = proxyType === 'allorigins'
+          ? 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url)
+          : 'https://corsproxy.io/?url=' + encodeURIComponent(url);
         response = await fetch(proxyUrl, fetchOpts);
         contentType = response.headers.get('content-type') || '';
       }
